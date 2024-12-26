@@ -1,45 +1,56 @@
 package main
 
 import (
-    "context"
-    "log"
-    "net/http"
-    "fmt"
-    "io"
-    pb "connector/gen" // import path to your generated files
+	pb "connector/gen" // import path to your generated files
+	"context"
+	"fmt"
+	"log"
+	"net/http"
 
-    //"google.golang.org/grpc"
+	"google.golang.org/grpc"
 )
 
 // server implements ImageServiceServer (from imageservice_grpc.pb.go)
 type server struct {
-    pb.UnimplementedImageServiceServer
-}
-
-func (s *server) Identify(ctx context.Context, req *pb.IdentifyRequest) (*pb.IdentifyResponse, error) {
-    log.Printf("Identify called with base_image url: %s", req.BaseImage.Url)
-
-    // Just returning a dummy embedding for demonstration
-
-    //request := &pb.IdentifyRequest{
-      //BaseImage: &pb.Image{Url: "hello"},
-    //};
-
-    return nil,nil
+	pb.UnimplementedImageServiceServer
 }
 
 func similarity(w http.ResponseWriter, r *http.Request) {
-	fmt.Println(r)
-	io.WriteString(w, "Empty response\n")
+	log.Print("SimilarityRequest!")
+
+	conn, err := grpc.Dial("similarity-service.default.svc.cluster.local:80", grpc.WithInsecure())
+
+	if err != nil {
+		log.Fatalf("failed to connect to gRPC server: %v", err)
+	}
+	// Typically you'd defer conn.Close() here, but if you want the connection
+	// to remain open until the HTTP server shuts down, you might handle that differently.
+
+	// 2. Create the ImageService client
+	imageClient := pb.NewImageServiceClient(conn)
+	request := &pb.IdentifyRequest{
+		BaseImage: &pb.Image{Url: "hello"},
+	}
+
+	res, err := imageClient.Identify(context.Background(), request)
+
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Identify call failed: %v", err), http.StatusInternalServerError)
+	}
+
+	fmt.Println(res)
+	fmt.Println(err)
 }
 
 func main() {
-  http.HandleFunc("/similarity", similarity)
+
+	http.HandleFunc("/similarity", similarity)
+	fmt.Println("Starting...")
 	err := http.ListenAndServe(":80", nil)
 
-  if err != nil {
-    fmt.Println(err)
-  }
+	if err != nil {
+		fmt.Println(err)
+	}
 
-  return;
+	return
 }
