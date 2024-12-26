@@ -2,13 +2,13 @@ package main
 
 import (
     "context"
-    "fmt"
     "log"
-    "net"
+    "net/http"
+    "fmt"
+    "io"
+    pb "connector/gen" // import path to your generated files
 
-    pb "my-backend/proto" // import path to your generated files
-
-    "google.golang.org/grpc"
+    //"google.golang.org/grpc"
 )
 
 // server implements ImageServiceServer (from imageservice_grpc.pb.go)
@@ -20,26 +20,26 @@ func (s *server) Identify(ctx context.Context, req *pb.IdentifyRequest) (*pb.Ide
     log.Printf("Identify called with base_image url: %s", req.BaseImage.Url)
 
     // Just returning a dummy embedding for demonstration
-    return &pb.IdentifyResponse{
-        Embedding: []float32{0.1, 0.2, 0.3},
-    }, nil
+
+    //request := &pb.IdentifyRequest{
+      //BaseImage: &pb.Image{Url: "hello"},
+    //};
+
+    return nil,nil
+}
+
+func similarity(w http.ResponseWriter, r *http.Request) {
+	fmt.Println(r)
+	io.WriteString(w, "Empty response\n")
 }
 
 func main() {
-    // Listen on port 50051 (typical gRPC port)
-    lis, err := net.Listen("tcp", ":50051")
-    if err != nil {
-        log.Fatalf("failed to listen: %v", err)
-    }
+  http.HandleFunc("/similarity", similarity)
+	err := http.ListenAndServe(":80", nil)
 
-    // Create a gRPC server
-    grpcServer := grpc.NewServer()
+  if err != nil {
+    fmt.Println(err)
+  }
 
-    // Register our service implementation with the gRPC server
-    pb.RegisterImageServiceServer(grpcServer, &server{})
-
-    log.Println("Server listening on port 50051...")
-    if err := grpcServer.Serve(lis); err != nil {
-        log.Fatalf("failed to serve: %v", err)
-    }
+  return;
 }
