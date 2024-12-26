@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package ImageService;
+
+option go_package = "../gen";
+
+service ImageService {
+  // takes a reference image, and a list of images to compare against
+  rpc Identify(IdentifyRequest) returns (IdentifyResponse) {}
+}
+
+message Image { string url = 1; }
+
+message IdentifyRequest { Image base_image = 1; }
+
+message IdentifyResponse { repeated float embedding = 1; }
