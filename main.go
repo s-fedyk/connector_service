@@ -4,6 +4,7 @@ import (
 	pb "connector/gen" // import path to your generated files
 	"context"
 	"fmt"
+	"github.com/milvus-io/milvus-sdk-go/v2/client"
 	"log"
 	"net/http"
 
@@ -43,10 +44,22 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-
 	http.HandleFunc("/similarity", similarity)
 	fmt.Println("Starting...")
-	err := http.ListenAndServe(":80", nil)
+
+	client, err := client.NewClient(context.Background(), client.Config{
+		Address: "localhost:19530",
+	})
+
+	if err != nil {
+		// handle error
+		fmt.Println("MILVUS ERROR")
+	}
+	defer client.Close()
+
+	client.HasCollection(context.Background(), "YOUR_COLLECTION_NAME")
+
+	err = http.ListenAndServe(":80", nil)
 
 	if err != nil {
 		fmt.Println(err)
