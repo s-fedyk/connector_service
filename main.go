@@ -16,15 +16,8 @@ type server struct {
 }
 
 func similarity(w http.ResponseWriter, r *http.Request) {
-	log.Print("SimilarityRequest!")
-
-	collectionPresent, err := milvusClient.HasCollection(context.Background(), "image_embeddings")
-
-	if err != nil {
-		log.Fatalf("Failed to connect to milvus db: %v", err)
-	}
-
-	log.Printf("Is image collection present? %v", collectionPresent)
+	log.Print("Similarity request")
+	context := context.Background()
 
 	conn, err := grpc.Dial("similarity-service.default.svc.cluster.local:80", grpc.WithInsecure())
 
@@ -40,14 +33,13 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 		BaseImage: &pb.Image{Url: "hello"},
 	}
 
-	res, err := imageClient.Identify(context.Background(), request)
+	res, err := imageClient.Identify(context, request)
+
+	querySimilar(res.Embedding, context)
 
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Identify call failed: %v", err), http.StatusInternalServerError)
 	}
-
-	fmt.Println(res)
-	fmt.Println(err)
 }
 
 func main() {
