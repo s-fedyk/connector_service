@@ -4,7 +4,6 @@ import (
 	pb "connector/gen" // import path to your generated files
 	"context"
 	"fmt"
-	"github.com/milvus-io/milvus-sdk-go/v2/client"
 	"log"
 	"net/http"
 
@@ -19,16 +18,7 @@ type server struct {
 func similarity(w http.ResponseWriter, r *http.Request) {
 	log.Print("SimilarityRequest!")
 
-	log.Print("Attempting connection...")
-	client, err := client.NewClient(context.Background(),
-		client.Config{
-			Address: "milvus-demo.milvus.svc.cluster.local:19530",
-		},
-	)
-
-	log.Print("Connection to db established!")
-
-	collectionPresent, err := client.HasCollection(context.Background(), "image_embeddings")
+	collectionPresent, err := milvusClient.HasCollection(context.Background(), "image_embeddings")
 
 	if err != nil {
 		log.Fatalf("Failed to connect to milvus db: %v", err)
@@ -62,8 +52,7 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	http.HandleFunc("/similarity", similarity)
-	fmt.Println("Starting...")
-
+	fmt.Println("Starting server...")
 	err := http.ListenAndServe(":80", nil)
 
 	if err != nil {
