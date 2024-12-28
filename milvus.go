@@ -38,7 +38,7 @@ func querySimilar(embedding []float32, context context.Context) {
 
 	res, err := (*milvusClient).Search(
 		context,
-		"image_embeddings",
+		"vector",
 		[]string{},
 		"",
 		[]string{"filename"},
