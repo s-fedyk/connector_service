@@ -24,10 +24,7 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatalf("failed to connect to gRPC server: %v", err)
 	}
-	// Typically you'd defer conn.Close() here, but if you want the connection
-	// to remain open until the HTTP server shuts down, you might handle that differently.
 
-	// 2. Create the ImageService client
 	imageClient := pb.NewImageServiceClient(conn)
 	request := &pb.IdentifyRequest{
 		BaseImage: &pb.Image{Url: "hello"},

@@ -43,7 +43,7 @@ func querySimilar(embedding []float32, context context.Context) {
 		"",
 		[]string{"filename"},
 		[]entity.Vector{entity.FloatVector(embedding)},
-		"Vector",
+		"vector",
 		entity.COSINE,
 		10,
 		sp,
