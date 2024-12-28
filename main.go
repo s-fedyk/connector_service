@@ -19,6 +19,7 @@ type server struct {
 func similarity(w http.ResponseWriter, r *http.Request) {
 	log.Print("SimilarityRequest!")
 
+	log.Print("Attempting connection...")
 	client, err := client.NewClient(context.Background(),
 		client.Config{
 			Address: "milvus-demo.milvus.svc.cluster.local:19530",
