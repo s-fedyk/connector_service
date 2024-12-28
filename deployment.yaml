@@ -21,9 +21,4 @@ spec:
         imagePullPolicy: Always
         ports:
         - containerPort: 80 # the container's listening port
-        # If you need environment variables, add them here
-        # env:
-        #   - name: MILVUS-HOST
-        #     value: "milvus"
-        #   - name: MILVUS-PORT
-        #     value: "19530"
+
