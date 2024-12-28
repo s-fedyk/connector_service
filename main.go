@@ -21,7 +21,7 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 
 	client, err := client.NewClient(context.Background(),
 		client.Config{
-			Address: "milvus-demo.default.svc.cluster.local:19530",
+			Address: "milvus-demo.milvus.svc.cluster.local:19530",
 		},
 	)
 
