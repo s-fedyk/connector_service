@@ -19,8 +19,10 @@ type server struct {
 func similarity(w http.ResponseWriter, r *http.Request) {
 	log.Print("SimilarityRequest!")
 
-	client, err := client.NewClient(context.Background(), client.Config{
-		Address: "milvus-demo.default.svc.cluster.local:19530"},
+	client, err := client.NewClient(context.Background(),
+		client.Config{
+			Address: "milvus-demo.default.svc.cluster.local:19530",
+		},
 	)
 
 	collectionPresent, err := client.HasCollection(context.Background(), "image_embeddings")
