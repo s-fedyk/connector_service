@@ -35,11 +35,11 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 
 	res, err := imageClient.Identify(context, request)
 
-	querySimilar(res.Embedding, context)
-
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Identify call failed: %v", err), http.StatusInternalServerError)
 	}
+
+	querySimilar(res.Embedding, context)
 }
 
 func main() {
