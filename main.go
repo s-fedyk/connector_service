@@ -25,6 +25,8 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 		},
 	)
 
+	log.Print("Connection to db established!")
+
 	collectionPresent, err := client.HasCollection(context.Background(), "image_embeddings")
 
 	if err != nil {
