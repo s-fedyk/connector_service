@@ -19,6 +19,18 @@ type server struct {
 func similarity(w http.ResponseWriter, r *http.Request) {
 	log.Print("SimilarityRequest!")
 
+	client, err := client.NewClient(context.Background(), client.Config{
+		Address: "milvus-demo.default.svc.cluster.local:19530"},
+	)
+
+	collectionPresent, err := client.HasCollection(context.Background(), "image_embeddings")
+
+	if err != nil {
+		log.Fatalf("Failed to connect to milvus db: %v", err)
+	}
+
+	log.Printf("Is image collection present? %v", collectionPresent)
+
 	conn, err := grpc.Dial("similarity-service.default.svc.cluster.local:80", grpc.WithInsecure())
 
 	if err != nil {
@@ -47,19 +59,7 @@ func main() {
 	http.HandleFunc("/similarity", similarity)
 	fmt.Println("Starting...")
 
-	client, err := client.NewClient(context.Background(), client.Config{
-		Address: "localhost:19530",
-	})
-
-	if err != nil {
-		// handle error
-		fmt.Println("MILVUS ERROR")
-	}
-	defer client.Close()
-
-	client.HasCollection(context.Background(), "YOUR_COLLECTION_NAME")
-
-	err = http.ListenAndServe(":80", nil)
+	err := http.ListenAndServe(":80", nil)
 
 	if err != nil {
 		fmt.Println(err)
