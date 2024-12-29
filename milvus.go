@@ -34,11 +34,12 @@ func collectionPresent() (bool, error) {
 
 func querySimilar(embedding []float32, context context.Context) {
 	log.Printf("querySimilar")
+
 	sp, _ := entity.NewIndexFlatSearchParam()
 
 	res, err := (*milvusClient).Search(
 		context,
-		"vector",
+		"image_embeddings",
 		[]string{},
 		"",
 		[]string{"filename"},
