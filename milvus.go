@@ -26,6 +26,7 @@ func init() {
 	client, err := client.NewClient(ctx,
 		client.Config{
 			Address: milvusURL,
+			DBName:  "default",
 		},
 	)
 
@@ -36,6 +37,18 @@ func init() {
 	milvusClient = &client
 
 	log.Print("Milvus initialization success!")
+
+	databasePresent, err := collectionPresent()
+
+	if databasePresent {
+		log.Print("Collection present!")
+	} else {
+		log.Fatal("Database empty!")
+	}
+
+	if err != nil {
+		log.Fatalf("Error retrieving collection status, err=(%v)", err)
+	}
 }
 
 func collectionPresent() (bool, error) {
