@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"time"
 
 	"github.com/milvus-io/milvus-sdk-go/v2/client"
 	"github.com/milvus-io/milvus-sdk-go/v2/entity"
@@ -19,7 +20,10 @@ func init() {
 		log.Fatal("MILVUS_URL environment variable is not set")
 	}
 
-	client, err := client.NewClient(context.Background(),
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	client, err := client.NewClient(ctx,
 		client.Config{
 			Address: milvusURL,
 		},

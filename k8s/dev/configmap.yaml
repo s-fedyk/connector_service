@@ -4,5 +4,5 @@ metadata:
   name: service-config
   namespace: default
 data:
-  MILVUS_URL: "milvus-demo.milvus.svc.cluster.local:19530"
+  MILVUS_URL: "host.docker.internal:19530"
   SIMILARITY_SERVICE_URL: "similarity-service.default.svc.cluster.local:80"
