@@ -36,6 +36,7 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 	res, err := imageClient.Identify(context, request)
 
 	if err != nil {
+		log.Printf("Identify call failed: %v", err)
 		http.Error(w, fmt.Sprintf("Identify call failed: %v", err), http.StatusInternalServerError)
 	}
 

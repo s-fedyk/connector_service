@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"os"
 
 	"github.com/milvus-io/milvus-sdk-go/v2/client"
 	"github.com/milvus-io/milvus-sdk-go/v2/entity"
@@ -13,17 +14,22 @@ var milvusClient *client.Client
 func init() {
 	log.Print("Initializing Milvus...")
 
+	milvusURL := os.Getenv("MILVUS_URL")
+	if milvusURL == "" {
+		log.Fatal("MILVUS_URL environment variable is not set")
+	}
+
 	client, err := client.NewClient(context.Background(),
 		client.Config{
-			Address: "milvus-demo.milvus.svc.cluster.local:19530",
+			Address: milvusURL,
 		},
 	)
-
-	milvusClient = &client
 
 	if err != nil {
 		log.Fatalf("Milvus connection failed. err=(%v)", err)
 	}
+
+	milvusClient = &client
 
 	log.Print("Milvus initialization success!")
 }

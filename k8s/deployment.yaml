@@ -1,0 +1,29 @@
+# my-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: connector-service-deployment
+  labels:
+    app: connector-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: connector-service
+  template:
+    metadata:
+      labels:
+        app: connector-service
+    spec:
+      nodeSelector:
+        role: milvus
+      containers:
+      - name: connector
+        image: pomidoro/connector-service:1        
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80 # the container's listening port
+        envFrom:
+          - configMapRef:
+              name: service-config
+

@@ -5,8 +5,8 @@ build:
 	docker build -t pomidoro/connector-service:1 .
 	docker push docker.io/pomidoro/connector-service:1
 kube:
-	kubectl apply -f deployment.yaml
-	kubectl apply -f service.yaml
+	kubectl apply -f k8s/deployment.yaml
+	kubectl apply -f k8s/service.yaml
 teardown:
 	- kubectl delete deployment connector-service-deployment
 	- kubectl delete service connector-service
