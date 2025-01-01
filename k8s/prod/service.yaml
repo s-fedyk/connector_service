@@ -1,0 +1,16 @@
+# my-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: connector-service
+  labels:
+    app: connector-service
+spec:
+  type: ClusterIP
+  selector:
+    app: connector-service
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80            # The service's port (cluster-internal)
+      targetPort: 80 # Matches containerPort from the Deployment
