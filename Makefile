@@ -16,4 +16,4 @@ prod:
 teardown:
 	- kubectl delete deployment connector-service-deployment
 	- kubectl delete service connector-service
-	- kubectl delete configmap service-config
+	- kubectl delete configmap connector-service-config

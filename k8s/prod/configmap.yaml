@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: service-config
+  name: connector-service-config
   namespace: default
 data:
   MILVUS_URL: "milvus-demo.milvus.svc.cluster.local:19530"

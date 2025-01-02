@@ -23,5 +23,5 @@ spec:
         - containerPort: 80 # the container's listening port
         envFrom:
           - configMapRef:
-              name: service-config
+              name: connector-service-config
 
