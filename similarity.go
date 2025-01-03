@@ -1,12 +1,15 @@
 package main
 
 import (
+	"bytes"
 	pb "connector/gen" // import path to your generated files
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
+	"image"
+	"image/jpeg"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"os"
 
@@ -35,22 +38,43 @@ func init() {
 	log.Print("Similarity client connection established!")
 }
 
+func toJPEG(file multipart.File) (*bytes.Buffer, error) {
+	img, _, err := image.Decode(file)
+	if err != nil {
+		return nil, err
+	}
+
+	var jpegBuffer bytes.Buffer
+	err = jpeg.Encode(&jpegBuffer, img, nil)
+	if err != nil {
+    return nil, err
+	}
+
+  return &jpegBuffer, nil
+}
+
 func similarity(w http.ResponseWriter, r *http.Request) {
 	log.Print("Similarity request!")
 
-	file, header, err := r.FormFile("image")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
-	buffer := make([]byte, header.Size)
-
-	for {
-		_, err := file.Read(buffer)
-
-		if err == io.EOF {
-			break
-		}
+	// Handle OPTIONS method
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
 	}
 
-	store(buffer, header.Filename)
+	file, header, err := r.FormFile("image")
+
+	buffer,err := toJPEG(file)
+
+  if (err != nil) {
+    http.Error(w, fmt.Sprintf("toJPEG call failed: %v", err), http.StatusInternalServerError)
+  }
+
+	store(buffer.Bytes(), header.Filename)
 
 	request := &pb.IdentifyRequest{
 		BaseImage: &pb.Image{Url: header.Filename},
