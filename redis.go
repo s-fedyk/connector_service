@@ -33,10 +33,10 @@ func init() {
 	}
 }
 
-func store(encoding string, filename string) (bool, error) {
+func store(buf []byte, filename string) (bool, error) {
 
 	ctx := context.Background()
-	redisClient.Set(ctx, filename, encoding, 10*time.Minute)
+	redisClient.Set(ctx, filename, buf, 10*time.Minute)
 
 	return true, nil
 }

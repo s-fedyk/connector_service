@@ -3,7 +3,6 @@ package main
 import (
 	pb "connector/gen" // import path to your generated files
 	"context"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"log"
@@ -52,8 +51,7 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	encodedImage := base64.StdEncoding.EncodeToString(buffer)
-	store(encodedImage, header.Filename)
+	store(buffer, header.Filename)
 
 	request := &pb.IdentifyRequest{
 		BaseImage: &pb.Image{Url: header.Filename},
