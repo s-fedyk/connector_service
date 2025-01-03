@@ -55,7 +55,7 @@ func collectionPresent() (bool, error) {
 	return (*milvusClient).HasCollection(context.Background(), "image_embeddings")
 }
 
-func querySimilar(embedding []float32, context context.Context) {
+func querySimilar(embedding []float32, context context.Context) []string {
 	log.Printf("querySimilar")
 
 	sp, _ := entity.NewIndexFlatSearchParam()
@@ -65,7 +65,7 @@ func querySimilar(embedding []float32, context context.Context) {
 		"image_embeddings",
 		[]string{},
 		"",
-		[]string{"filename"},
+		[]string{"filepath"},
 		[]entity.Vector{entity.FloatVector(embedding)},
 		"vector",
 		entity.L2,
@@ -77,7 +77,14 @@ func querySimilar(embedding []float32, context context.Context) {
 		log.Printf("Search error, err=(%v)", err)
 	}
 
-	log.Printf("similar filename is %v", res)
+  urls := make([]string, 10);
 
-	return
+  for _, searchResult := range res {
+    for idx := range(10) {
+      url,_ := searchResult.Fields.GetColumn("filepath").GetAsString(idx)
+      urls[idx] = url
+    }
+  }
+
+	return urls
 }

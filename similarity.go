@@ -3,6 +3,7 @@ package main
 import (
 	pb "connector/gen" // import path to your generated files
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -10,6 +11,7 @@ import (
 	"os"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 var similarityClient pb.ImageServiceClient
@@ -22,10 +24,10 @@ func init() {
 		log.Fatal("SIMILARITY_SERVICE_URL environment variable is not set")
 	}
 
-	conn, err := grpc.Dial(similarityURL, grpc.WithInsecure())
-
+	conn, err := grpc.NewClient(similarityURL, grpc.WithTransportCredentials(insecure.NewCredentials()))
+  
 	if err != nil {
-		log.Fatalf("failed to connect to gRPC server: %v", err)
+		log.Fatalf("failed to connect to Similarity Service gRPC server: %v", err)
 	}
 
 	similarityClient = pb.NewImageServiceClient(conn)
@@ -37,9 +39,6 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 	log.Print("Similarity request!")
 
 	file, header, err := r.FormFile("image")
-
-	log.Printf("filename is %v", header.Filename)
-	log.Printf("filesize is %v", header.Size)
 
 	buffer := make([]byte, header.Size)
 
@@ -58,13 +57,16 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 	}
 
 	context := context.Background()
-
 	res, err := similarityClient.Identify(context, request)
 
 	if err != nil {
 		log.Printf("Identify call failed: %v", err)
 		http.Error(w, fmt.Sprintf("Identify call failed: %v", err), http.StatusInternalServerError)
+    return
 	}
 
-	querySimilar(res.Embedding, context)
+  similarURLs := querySimilar(res.Embedding, context)
+
+  jsonWriter := json.NewEncoder(w)
+  jsonWriter.Encode(similarURLs)
 }
