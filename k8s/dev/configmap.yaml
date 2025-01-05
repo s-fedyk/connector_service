@@ -6,4 +6,4 @@ metadata:
 data:
   MILVUS_URL: "host.docker.internal:19530"
   SIMILARITY_SERVICE_URL: "similarity-service.default.svc.cluster.local:80"
-  REDIS_URL: "host.docker.internal:6379"
+  REDIS_URL: "similarity-cache-wutpwp.serverless.use2.cache.amazonaws.com"
