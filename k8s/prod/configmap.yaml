@@ -6,4 +6,4 @@ metadata:
 data:
   MILVUS_URL: "milvus-demo.milvus.svc.cluster.local:19530"
   SIMILARITY_SERVICE_URL: "similarity-service.default.svc.cluster.local:80"
-  REDIS_URL: "similarity-cache-wutpwp.serverless.use2.cache.amazonaws.com"
+  REDIS_URL: "similarity-cache-wutpwp.serverless.use2.cache.amazonaws.com:6379"
