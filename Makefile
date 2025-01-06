@@ -13,7 +13,9 @@ prod:
 	kubectl apply -f k8s/prod/deployment.yaml
 	kubectl apply -f k8s/prod/service.yaml
 	kubectl apply -f k8s/prod/configmap.yaml
+	kubectl apply -f k8s/prod/ingress.yaml
 teardown:
 	- kubectl delete deployment connector-service-deployment
 	- kubectl delete service connector-service
 	- kubectl delete configmap connector-service-config
+	- kubectl delete ingress connector-service-ingress
