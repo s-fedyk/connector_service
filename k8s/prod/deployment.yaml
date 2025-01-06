@@ -16,7 +16,7 @@ spec:
         app: connector-service
     spec:
       nodeSelector:
-        role: milvus
+        role: connector
       containers:
       - name: connector
         image: pomidoro/connector-service:1        
