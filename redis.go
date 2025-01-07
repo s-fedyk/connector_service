@@ -22,7 +22,11 @@ func init() {
 
 	redisClient = redis.NewClient(&redis.Options{
 		Addr: redisURL,
+    Password: "",
 		DB:   0,
+    DialTimeout: 5*time.Second,
+    ReadTimeout: 3*time.Second,
+    WriteTimeout: 3*time.Second,
 	})
 
 	_, err := redisClient.Ping(ctx).Result()
@@ -34,8 +38,8 @@ func init() {
 }
 
 func store(buf []byte, filename string) (bool, error) {
-
 	ctx := context.Background()
+
 	redisClient.Set(ctx, filename, buf, 10*time.Minute)
 
 	return true, nil

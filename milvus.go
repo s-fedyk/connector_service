@@ -2,30 +2,79 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"os"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/milvus-io/milvus-sdk-go/v2/client"
 	"github.com/milvus-io/milvus-sdk-go/v2/entity"
 )
 
 var milvusClient *client.Client
 
+type milvusSecret struct {
+  MILVUS_URI string
+  MILVUS_USER string
+  MILVUS_PASS string
+}
+
+func getAWSSecret() milvusSecret {
+  secretName := "prod/similarity/milvus"
+	region := "us-east-2"
+
+	config, err := config.LoadDefaultConfig(context.Background(), config.WithRegion(region))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Create Secrets Manager client
+	svc := secretsmanager.NewFromConfig(config)
+
+	input := &secretsmanager.GetSecretValueInput{
+		SecretId:     aws.String(secretName),
+		VersionStage: aws.String("AWSCURRENT"), // VersionStage defaults to AWSCURRENT if unspecified
+	}
+
+	result, err := svc.GetSecretValue(context.Background(), input)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+  var secret milvusSecret;
+  err = json.Unmarshal([]byte(*result.SecretString), &secret)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+  return secret
+}
+
 func init() {
 	log.Print("Initializing Milvus...")
 
-	milvusURL := os.Getenv("MILVUS_URL")
-	if milvusURL == "" {
-		log.Fatal("MILVUS_URL environment variable is not set")
-	}
-
+  
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+  var secret milvusSecret
+
+  if os.Getenv("ENV") == "DEV" {
+    secret.MILVUS_URI = os.Getenv("MILVUS_URI")
+    secret.MILVUS_USER = os.Getenv("MILVUS_USER")
+    secret.MILVUS_PASS = os.Getenv("MILVUS_PASS")
+  } else {
+    secret = getAWSSecret()
+  }
+
+  
 	client, err := client.NewClient(ctx,
 		client.Config{
-			Address: milvusURL,
+			Address: secret.MILVUS_URI,
+      Username: secret.MILVUS_USER,
+      Password: secret.MILVUS_PASS,
 			DBName:  "default",
 		},
 	)
@@ -40,19 +89,19 @@ func init() {
 
 	databasePresent, err := collectionPresent()
 
+	if err != nil {
+		log.Fatalf("Error retrieving collection status, err=(%v)", err)
+	}
+
 	if databasePresent {
 		log.Print("Collection present!")
 	} else {
 		log.Fatal("Database empty!")
 	}
-
-	if err != nil {
-		log.Fatalf("Error retrieving collection status, err=(%v)", err)
-	}
 }
 
 func collectionPresent() (bool, error) {
-	return (*milvusClient).HasCollection(context.Background(), "image_embeddings")
+	return (*milvusClient).HasCollection(context.Background(), "facenet_embeddings")
 }
 
 func querySimilar(embedding []float32, context context.Context) []string {
@@ -77,14 +126,14 @@ func querySimilar(embedding []float32, context context.Context) []string {
 		log.Printf("Search error, err=(%v)", err)
 	}
 
-  urls := make([]string, 10);
+  URLs := make([]string, 10);
 
   for _, searchResult := range res {
     for idx := range(10) {
-      url,_ := searchResult.Fields.GetColumn("filepath").GetAsString(idx)
-      urls[idx] = url
+      URL,_ := searchResult.Fields.GetColumn("filepath").GetAsString(idx)
+      URLs[idx] = URL
     }
   }
 
-	return urls
+	return URLs
 }

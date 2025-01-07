@@ -12,6 +12,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
+  "github.com/beevik/guid"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -53,6 +54,17 @@ func toJPEG(file multipart.File) (*bytes.Buffer, error) {
   return &jpegBuffer, nil
 }
 
+type requestContext struct {
+  context *context.Context 
+  requestGUID string
+}
+
+func newRequestContext(context *context.Context) {
+  var thisContext requestContext;
+  thisContext.context = context;
+  thisContext.requestGUID = guid.NewString()
+}
+
 func similarity(w http.ResponseWriter, r *http.Request) {
 	log.Print("Similarity request!")
 
@@ -68,10 +80,11 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 
 	file, header, err := r.FormFile("image")
 
-	buffer,err := toJPEG(file)
+	buffer, err := toJPEG(file)
 
   if (err != nil) {
-    http.Error(w, fmt.Sprintf("toJPEG call failed: %v", err), http.StatusInternalServerError)
+    log.Printf("toJPEG call failure, err=(%v)", err)
+    http.Error(w, fmt.Sprintf("toJPEG call err=(%v)", err), http.StatusInternalServerError)
   }
 
 	store(buffer.Bytes(), header.Filename)
@@ -84,13 +97,19 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 	res, err := similarityClient.Identify(context, request)
 
 	if err != nil {
-		log.Printf("Identify call failed: %v", err)
-		http.Error(w, fmt.Sprintf("Identify call failed: %v", err), http.StatusInternalServerError)
+		log.Printf("Identify call failed, err=(%v)", err)
+		http.Error(w, fmt.Sprintf("Identify call failed, err=(%v)", err), http.StatusInternalServerError)
     return
 	}
 
   similarURLs := querySimilar(res.Embedding, context)
 
   jsonWriter := json.NewEncoder(w)
-  jsonWriter.Encode(similarURLs)
+  err = jsonWriter.Encode(similarURLs)
+
+	if err != nil {
+		log.Printf("Response encoding failure!, err=(%v)", err)
+		http.Error(w, fmt.Sprintf("Response encoding failure!, err=(%v)", err), http.StatusInternalServerError)
+    return
+	}
 }
