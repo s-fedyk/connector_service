@@ -8,12 +8,17 @@ import (
 	"fmt"
 	"image"
 	"image/jpeg"
+	_ "image/png"
 	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
-  "github.com/beevik/guid"
+	"runtime/debug"
+	"time"
 
+	"github.com/beevik/guid"
+
+	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -66,7 +71,14 @@ func newRequestContext(context *context.Context) {
 }
 
 func similarity(w http.ResponseWriter, r *http.Request) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Recovered from panic: %v\nStack trace:\n%s", r, debug.Stack())
+		}
+	}()
+
 	log.Print("Similarity request!")
+	requestsCounter.With(prometheus.Labels{}).Inc()
 
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
@@ -77,6 +89,12 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
+
+  similarityStart := time.Now()
+  defer func(){
+    similarityDuration := time.Since(similarityStart)
+    requestHistogram.With(prometheus.Labels{}).Observe(similarityDuration.Seconds())  
+  }()
 
 	file, header, err := r.FormFile("image")
 
@@ -94,7 +112,11 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 	}
 
 	context := context.Background()
+
+  embeddingStart := time.Now()
 	res, err := similarityClient.Identify(context, request)
+  embeddingDuration := time.Since(embeddingStart)
+  modelHistogram.With(prometheus.Labels{}).Observe(embeddingDuration.Seconds())
 
 	if err != nil {
 		log.Printf("Identify call failed, err=(%v)", err)
@@ -102,7 +124,10 @@ func similarity(w http.ResponseWriter, r *http.Request) {
     return
 	}
 
+  databaseStart := time.Now()
   similarURLs := querySimilar(res.Embedding, context)
+  databaseDuration := time.Since(databaseStart)
+  databaseHistogram.With(prometheus.Labels{}).Observe(databaseDuration.Seconds())
 
   jsonWriter := json.NewEncoder(w)
   err = jsonWriter.Encode(similarURLs)

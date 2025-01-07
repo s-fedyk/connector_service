@@ -54,7 +54,6 @@ func getAWSSecret() milvusSecret {
 
 func init() {
 	log.Print("Initializing Milvus...")
-
   
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -68,7 +67,6 @@ func init() {
   } else {
     secret = getAWSSecret()
   }
-
   
 	client, err := client.NewClient(ctx,
 		client.Config{
@@ -106,12 +104,13 @@ func collectionPresent() (bool, error) {
 
 func querySimilar(embedding []float32, context context.Context) []string {
 	log.Printf("querySimilar")
+  log.Printf("%v", embedding)
 
 	sp, _ := entity.NewIndexFlatSearchParam()
 
 	res, err := (*milvusClient).Search(
 		context,
-		"image_embeddings",
+		"facenet_embeddings",
 		[]string{},
 		"",
 		[]string{"filepath"},
@@ -134,6 +133,8 @@ func querySimilar(embedding []float32, context context.Context) []string {
       URLs[idx] = URL
     }
   }
+
+  log.Printf("querySimilar success")
 
 	return URLs
 }
