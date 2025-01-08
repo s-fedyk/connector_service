@@ -7,7 +7,6 @@ import (
 )
 
 var (
-
   buckets = []float64{0.1, 0.25, 0.5, 1, 2, 3, 5, 7, 10}
 	
 	requestsCounter = prometheus.NewCounterVec(

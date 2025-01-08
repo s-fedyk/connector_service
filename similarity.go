@@ -105,7 +105,7 @@ func similarity(w http.ResponseWriter, r *http.Request) {
     http.Error(w, fmt.Sprintf("toJPEG call err=(%v)", err), http.StatusInternalServerError)
   }
 
-	store(buffer.Bytes(), header.Filename)
+	storeS3(buffer.Bytes(), header.Filename)
 
 	request := &pb.IdentifyRequest{
 		BaseImage: &pb.Image{Url: header.Filename},

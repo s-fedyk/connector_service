@@ -36,7 +36,7 @@ func getAWSSecret() milvusSecret {
 
 	input := &secretsmanager.GetSecretValueInput{
 		SecretId:     aws.String(secretName),
-		VersionStage: aws.String("AWSCURRENT"), // VersionStage defaults to AWSCURRENT if unspecified
+		VersionStage: aws.String("AWSCURRENT"), 
 	}
 
 	result, err := svc.GetSecretValue(context.Background(), input)
