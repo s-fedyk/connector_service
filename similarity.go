@@ -110,7 +110,7 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 	storeS3(buffer.Bytes(), tempName)
 
 	request := &pb.IdentifyRequest{
-		BaseImage: &pb.Image{Url: header.Filename},
+		BaseImage: &pb.Image{Url: tempName},
 	}
 
 	context := context.Background()
