@@ -105,7 +105,9 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("toJPEG call err=(%v)", err), http.StatusInternalServerError)
 	}
 
-	storeS3(buffer.Bytes(), header.Filename)
+	tempName := guid.NewString()
+
+	storeS3(buffer.Bytes(), tempName)
 
 	request := &pb.IdentifyRequest{
 		BaseImage: &pb.Image{Url: header.Filename},
@@ -116,7 +118,7 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 	embeddingStart := time.Now()
 	res, err := similarityClient.Identify(context, request)
 
-	deleteS3(header.Filename)
+	deleteS3(tempName)
 	embeddingDuration := time.Since(embeddingStart)
 	modelHistogram.With(prometheus.Labels{}).Observe(embeddingDuration.Seconds())
 
