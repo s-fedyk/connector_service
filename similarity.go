@@ -34,7 +34,7 @@ func init() {
 	}
 
 	conn, err := grpc.NewClient(similarityURL, grpc.WithTransportCredentials(insecure.NewCredentials()))
-  
+
 	if err != nil {
 		log.Fatalf("failed to connect to Similarity Service gRPC server: %v", err)
 	}
@@ -53,21 +53,21 @@ func toJPEG(file multipart.File) (*bytes.Buffer, error) {
 	var jpegBuffer bytes.Buffer
 	err = jpeg.Encode(&jpegBuffer, img, nil)
 	if err != nil {
-    return nil, err
+		return nil, err
 	}
 
-  return &jpegBuffer, nil
+	return &jpegBuffer, nil
 }
 
 type requestContext struct {
-  context *context.Context 
-  requestGUID string
+	context     *context.Context
+	requestGUID string
 }
 
 func newRequestContext(context *context.Context) {
-  var thisContext requestContext;
-  thisContext.context = context;
-  thisContext.requestGUID = guid.NewString()
+	var thisContext requestContext
+	thisContext.context = context
+	thisContext.requestGUID = guid.NewString()
 }
 
 func similarity(w http.ResponseWriter, r *http.Request) {
@@ -90,20 +90,20 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-  similarityStart := time.Now()
-  defer func(){
-    similarityDuration := time.Since(similarityStart)
-    requestHistogram.With(prometheus.Labels{}).Observe(similarityDuration.Seconds())  
-  }()
+	similarityStart := time.Now()
+	defer func() {
+		similarityDuration := time.Since(similarityStart)
+		requestHistogram.With(prometheus.Labels{}).Observe(similarityDuration.Seconds())
+	}()
 
 	file, header, err := r.FormFile("image")
 
 	buffer, err := toJPEG(file)
 
-  if (err != nil) {
-    log.Printf("toJPEG call failure, err=(%v)", err)
-    http.Error(w, fmt.Sprintf("toJPEG call err=(%v)", err), http.StatusInternalServerError)
-  }
+	if err != nil {
+		log.Printf("toJPEG call failure, err=(%v)", err)
+		http.Error(w, fmt.Sprintf("toJPEG call err=(%v)", err), http.StatusInternalServerError)
+	}
 
 	storeS3(buffer.Bytes(), header.Filename)
 
@@ -113,28 +113,30 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 
 	context := context.Background()
 
-  embeddingStart := time.Now()
+	embeddingStart := time.Now()
 	res, err := similarityClient.Identify(context, request)
-  embeddingDuration := time.Since(embeddingStart)
-  modelHistogram.With(prometheus.Labels{}).Observe(embeddingDuration.Seconds())
+
+	deleteS3(header.Filename)
+	embeddingDuration := time.Since(embeddingStart)
+	modelHistogram.With(prometheus.Labels{}).Observe(embeddingDuration.Seconds())
 
 	if err != nil {
 		log.Printf("Identify call failed, err=(%v)", err)
 		http.Error(w, fmt.Sprintf("Identify call failed, err=(%v)", err), http.StatusInternalServerError)
-    return
+		return
 	}
 
-  databaseStart := time.Now()
-  similarURLs := querySimilar(res.Embedding, context)
-  databaseDuration := time.Since(databaseStart)
-  databaseHistogram.With(prometheus.Labels{}).Observe(databaseDuration.Seconds())
+	databaseStart := time.Now()
+	similarURLs := querySimilar(res.Embedding, context)
+	databaseDuration := time.Since(databaseStart)
+	databaseHistogram.With(prometheus.Labels{}).Observe(databaseDuration.Seconds())
 
-  jsonWriter := json.NewEncoder(w)
-  err = jsonWriter.Encode(similarURLs)
+	jsonWriter := json.NewEncoder(w)
+	err = jsonWriter.Encode(similarURLs)
 
 	if err != nil {
 		log.Printf("Response encoding failure!, err=(%v)", err)
 		http.Error(w, fmt.Sprintf("Response encoding failure!, err=(%v)", err), http.StatusInternalServerError)
-    return
+		return
 	}
 }
