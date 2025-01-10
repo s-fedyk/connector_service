@@ -1,4 +1,3 @@
 # connector_service
 
-requirements:
-brew install protobuf
+TODO: Write readme
