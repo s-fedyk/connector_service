@@ -70,6 +70,19 @@ func newRequestContext(context *context.Context) {
 	thisContext.requestGUID = guid.NewString()
 }
 
+
+type SimilarityResponse struct {
+    SimilarURLs []string    `json:"similar_urls"`
+    FacialArea  FacialArea  `json:"facial_area"`
+}
+
+type FacialArea struct {
+    X int32 `json:"x"`
+    Y int32 `json:"y"`
+    W int32 `json:"w"`
+    H int32 `json:"h"`
+}
+
 func similarity(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -96,7 +109,7 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 		requestHistogram.With(prometheus.Labels{}).Observe(similarityDuration.Seconds())
 	}()
 
-	file, header, err := r.FormFile("image")
+	file, _, err := r.FormFile("image")
 
 	buffer, err := toJPEG(file)
 
@@ -133,8 +146,18 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 	databaseDuration := time.Since(databaseStart)
 	databaseHistogram.With(prometheus.Labels{}).Observe(databaseDuration.Seconds())
 
+  similarityResponse := SimilarityResponse{
+    SimilarURLs: similarURLs,
+    FacialArea: FacialArea{
+        X: res.FacialArea.X,
+        Y: res.FacialArea.Y,
+        W: res.FacialArea.W,
+        H: res.FacialArea.H,
+    },
+  }
+
 	jsonWriter := json.NewEncoder(w)
-	err = jsonWriter.Encode(similarURLs)
+	err = jsonWriter.Encode(similarityResponse)
 
 	if err != nil {
 		log.Printf("Response encoding failure!, err=(%v)", err)
