@@ -70,17 +70,23 @@ func newRequestContext(context *context.Context) {
 	thisContext.requestGUID = guid.NewString()
 }
 
-
 type SimilarityResponse struct {
-    SimilarURLs []string    `json:"similar_urls"`
-    FacialArea  FacialArea  `json:"facial_area"`
+	SimilarURLs []string   `json:"similar_urls"`
+	FacialArea  FacialArea `json:"facial_area"`
+}
+
+type Eye struct {
+	X int32 `json:"x"`
+	Y int32 `json:"y"`
 }
 
 type FacialArea struct {
-    X int32 `json:"x"`
-    Y int32 `json:"y"`
-    W int32 `json:"w"`
-    H int32 `json:"h"`
+	X         int32 `json:"x"`
+	Y         int32 `json:"y"`
+	W         int32 `json:"w"`
+	H         int32 `json:"h"`
+	LEFT_EYE  Eye   `json:"left_eye"`
+	RIGHT_EYE Eye   `json:"right_eye"`
 }
 
 func similarity(w http.ResponseWriter, r *http.Request) {
@@ -141,20 +147,34 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	print("Response: %v", &res.FacialArea)
+
 	databaseStart := time.Now()
 	similarURLs := querySimilar(res.Embedding, context)
 	databaseDuration := time.Since(databaseStart)
 	databaseHistogram.With(prometheus.Labels{}).Observe(databaseDuration.Seconds())
 
-  similarityResponse := SimilarityResponse{
-    SimilarURLs: similarURLs,
-    FacialArea: FacialArea{
-        X: res.FacialArea.X,
-        Y: res.FacialArea.Y,
-        W: res.FacialArea.W,
-        H: res.FacialArea.H,
-    },
-  }
+	left_eye := Eye{
+		X: res.FacialArea.LeftEye.X,
+		Y: res.FacialArea.LeftEye.Y,
+	}
+
+	right_eye := Eye{
+		X: res.FacialArea.RightEye.X,
+		Y: res.FacialArea.RightEye.Y,
+	}
+
+	similarityResponse := SimilarityResponse{
+		SimilarURLs: similarURLs,
+		FacialArea: FacialArea{
+			X:         res.FacialArea.X,
+			Y:         res.FacialArea.Y,
+			W:         res.FacialArea.W,
+			H:         res.FacialArea.H,
+			LEFT_EYE:  left_eye,
+			RIGHT_EYE: right_eye,
+		},
+	}
 
 	jsonWriter := json.NewEncoder(w)
 	err = jsonWriter.Encode(similarityResponse)
