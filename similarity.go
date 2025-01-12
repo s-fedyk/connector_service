@@ -2,7 +2,8 @@ package main
 
 import (
 	"bytes"
-	pb "connector/gen" // import path to your generated files
+	analyser "connector/gen/analyser" // import path to your generated files
+	embedder "connector/gen/embedder" // import path to your generated files
 	"context"
 	"encoding/json"
 	"fmt"
@@ -23,7 +24,8 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-var similarityClient pb.ImageServiceClient
+var similarityClient embedder.ImageServiceClient
+var analyserClient analyser.AnalyserClient
 
 func init() {
 	log.Print("Initializing similarity client connection...")
@@ -39,9 +41,26 @@ func init() {
 		log.Fatalf("failed to connect to Similarity Service gRPC server: %v", err)
 	}
 
-	similarityClient = pb.NewImageServiceClient(conn)
+	similarityClient = embedder.NewImageServiceClient(conn)
 
 	log.Print("Similarity client connection established!")
+
+	log.Print("Initializing analyser client connection...")
+
+	analyserURL := os.Getenv("ANALYSER_SERVICE_URL")
+	if analyserURL == "" {
+		log.Fatal("ANALYSER_SERVICE_URL environment variable is not set")
+	}
+
+	conn, err = grpc.NewClient(similarityURL, grpc.WithTransportCredentials(insecure.NewCredentials()))
+
+	if err != nil {
+		log.Fatalf("failed to connect to Analyser Service gRPC server: %v", err)
+	}
+
+	analyserClient = analyser.NewAnalyserClient(conn)
+
+	log.Print("Analyser client connection established!")
 }
 
 func toJPEG(file multipart.File) (*bytes.Buffer, error) {
@@ -73,6 +92,7 @@ func newRequestContext(context *context.Context) {
 type SimilarityResponse struct {
 	SimilarURLs []string   `json:"similar_urls"`
 	FacialArea  FacialArea `json:"facial_area"`
+	Analysis    Analysis   `json:"analysis"`
 }
 
 type Eye struct {
@@ -87,6 +107,13 @@ type FacialArea struct {
 	H         int32 `json:"h"`
 	LEFT_EYE  Eye   `json:"left_eye"`
 	RIGHT_EYE Eye   `json:"right_eye"`
+}
+
+type Analysis struct {
+	EMOTION string `json:"emotion"`
+	GENDER  string `json:"gender"`
+	RACE    string `json:"race"`
+	AGE     string `json:"age"`
 }
 
 func similarity(w http.ResponseWriter, r *http.Request) {
@@ -128,18 +155,27 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 
 	storeS3(buffer.Bytes(), tempName)
 
-	request := &pb.IdentifyRequest{
-		BaseImage: &pb.Image{Url: tempName},
+	similarityRequest := &embedder.IdentifyRequest{
+		BaseImage: &embedder.Image{Url: tempName},
+	}
+
+	analysisRequest := &analyser.AnalyzeRequest{
+		BaseImage: &analyser.Image{Url: tempName},
 	}
 
 	context := context.Background()
 
-	embeddingStart := time.Now()
-	res, err := similarityClient.Identify(context, request)
+	analysisStart := time.Now()
+	analysisRes, err := analyserClient.Analyze(context, analysisRequest)
+	analysisDuration := time.Since(analysisStart)
+	analysisHistogram.With(prometheus.Labels{}).Observe(analysisDuration.Seconds())
 
-	deleteS3(tempName)
+	embeddingStart := time.Now()
+	similarityRes, err := similarityClient.Identify(context, similarityRequest)
 	embeddingDuration := time.Since(embeddingStart)
 	modelHistogram.With(prometheus.Labels{}).Observe(embeddingDuration.Seconds())
+
+	deleteS3(tempName)
 
 	if err != nil {
 		log.Printf("Identify call failed, err=(%v)", err)
@@ -147,32 +183,38 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	print("Response: %v", &res.FacialArea)
+	print("Response: %v", &similarityRes.FacialArea)
 
 	databaseStart := time.Now()
-	similarURLs := querySimilar(res.Embedding, context)
+	similarURLs := querySimilar(similarityRes.Embedding, context)
 	databaseDuration := time.Since(databaseStart)
 	databaseHistogram.With(prometheus.Labels{}).Observe(databaseDuration.Seconds())
 
 	left_eye := Eye{
-		X: res.FacialArea.LeftEye.X,
-		Y: res.FacialArea.LeftEye.Y,
+		X: similarityRes.FacialArea.LeftEye.X,
+		Y: similarityRes.FacialArea.LeftEye.Y,
 	}
 
 	right_eye := Eye{
-		X: res.FacialArea.RightEye.X,
-		Y: res.FacialArea.RightEye.Y,
+		X: similarityRes.FacialArea.RightEye.X,
+		Y: similarityRes.FacialArea.RightEye.Y,
 	}
 
 	similarityResponse := SimilarityResponse{
 		SimilarURLs: similarURLs,
 		FacialArea: FacialArea{
-			X:         res.FacialArea.X,
-			Y:         res.FacialArea.Y,
-			W:         res.FacialArea.W,
-			H:         res.FacialArea.H,
+			X:         similarityRes.FacialArea.X,
+			Y:         similarityRes.FacialArea.Y,
+			W:         similarityRes.FacialArea.W,
+			H:         similarityRes.FacialArea.H,
 			LEFT_EYE:  left_eye,
 			RIGHT_EYE: right_eye,
+		},
+		Analysis: Analysis{
+			GENDER:  analysisRes.Gender,
+			AGE:     analysisRes.Age,
+			RACE:    analysisRes.Race,
+			EMOTION: analysisRes.Emotion,
 		},
 	}
 

@@ -7,26 +7,35 @@ import (
 )
 
 var (
-  buckets = []float64{0.1, 0.25, 0.5, 1, 2, 3, 5, 7, 10}
-	
+	buckets = []float64{0.1, 0.25, 0.5, 1, 2, 3, 5, 7, 10}
+
 	requestsCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "similarity_requests_total", 
-			Help: "Total number of similarity requests", 
+			Name: "similarity_requests_total",
+			Help: "Total number of similarity requests",
 		},
-		[]string{}, 
+		[]string{},
 	)
 
-  modelHistogram = prometheus.NewHistogramVec(
+	modelHistogram = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "model_request_delay_seconds",
 			Help:    "Histogram of delay to embedding models",
-			Buckets: buckets, 
+			Buckets: buckets,
 		},
-		[]string{}, 
+		[]string{},
 	)
 
-  databaseHistogram = prometheus.NewHistogramVec(
+	analysisHistogram = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "model_request_delay_seconds",
+			Help:    "Histogram of delay to embedding models",
+			Buckets: buckets,
+		},
+		[]string{},
+	)
+
+	databaseHistogram = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "database_request_delay_seconds",
 			Help:    "Histogram of delay to vector database",
@@ -35,7 +44,7 @@ var (
 		[]string{},
 	)
 
-  requestHistogram = prometheus.NewHistogramVec(
+	requestHistogram = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "response_request_delay_seconds",
 			Help:    "Total similarity request delay",
@@ -46,12 +55,12 @@ var (
 )
 
 func init() {
-  log.Print("Registering prometheus counters...")
+	log.Print("Registering prometheus counters...")
 
 	prometheus.MustRegister(requestsCounter)
-  prometheus.MustRegister(modelHistogram)
-  prometheus.MustRegister(databaseHistogram)
-  prometheus.MustRegister(requestHistogram)
+	prometheus.MustRegister(modelHistogram)
+	prometheus.MustRegister(databaseHistogram)
+	prometheus.MustRegister(requestHistogram)
 
-  log.Print("Counters registered!")
+	log.Print("Counters registered!")
 }
