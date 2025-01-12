@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"runtime/debug"
+	"sync"
 	"time"
 
 	"github.com/beevik/guid"
@@ -148,7 +149,7 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		log.Printf("toJPEG call failure, err=(%v)", err)
-		http.Error(w, fmt.Sprintf("toJPEG call err=(%v)", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Failed to convert image to JPEG", err), http.StatusInternalServerError)
 	}
 
 	tempName := guid.NewString()
@@ -165,48 +166,69 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 
 	context := context.Background()
 
-	analysisStart := time.Now()
-	analysisRes, err := analyzerClient.Analyze(context, analysisRequest)
-	analysisDuration := time.Since(analysisStart)
-	analysisHistogram.With(prometheus.Labels{}).Observe(analysisDuration.Seconds())
+	var wg sync.WaitGroup
+	wg.Add(2)
 
-	embeddingStart := time.Now()
-	similarityRes, err := similarityClient.Identify(context, similarityRequest)
-	embeddingDuration := time.Since(embeddingStart)
-	modelHistogram.With(prometheus.Labels{}).Observe(embeddingDuration.Seconds())
+	var analysisRes *analyzer.AnalyzeResponse
+	var identifyRes *embedder.IdentifyResponse
+	var analysisErr, identifyErr error
 
-	deleteS3(tempName)
+	go func() {
+		defer wg.Done()
+		analysisStart := time.Now()
+		analysisRes, analysisErr = analyzerClient.Analyze(context, analysisRequest)
+		analysisDuration := time.Since(analysisStart)
+		analysisHistogram.With(prometheus.Labels{}).Observe(analysisDuration.Seconds())
+	}()
 
-	if err != nil {
-		log.Printf("Identify call failed, err=(%v)", err)
-		http.Error(w, fmt.Sprintf("Identify call failed, err=(%v)", err), http.StatusInternalServerError)
+	go func() {
+		defer wg.Done()
+		embeddingStart := time.Now()
+		identifyRes, identifyErr = similarityClient.Identify(context, similarityRequest)
+		embeddingDuration := time.Since(embeddingStart)
+		modelHistogram.With(prometheus.Labels{}).Observe(embeddingDuration.Seconds())
+	}()
+
+	wg.Wait()
+
+	go func() {
+		deleteS3(tempName)
+	}()
+
+	if analysisErr != nil {
+		log.Printf("Analyze call failed, err=(%v)", analysisErr)
+		http.Error(w, "Failed to analyze image, please wait and try again", http.StatusInternalServerError)
 		return
 	}
 
-	print("Response: %v", &similarityRes.FacialArea)
+	if identifyErr != nil {
+		log.Printf("Identify call failed, err=(%v)", identifyErr)
+		http.Error(w, "Failed to create face embedding, please wait and try again", http.StatusInternalServerError)
+		return
+	}
 
 	databaseStart := time.Now()
-	similarURLs := querySimilar(similarityRes.Embedding, context)
+	similarURLs := querySimilar(identifyRes.Embedding, context)
 	databaseDuration := time.Since(databaseStart)
 	databaseHistogram.With(prometheus.Labels{}).Observe(databaseDuration.Seconds())
 
 	left_eye := Eye{
-		X: similarityRes.FacialArea.LeftEye.X,
-		Y: similarityRes.FacialArea.LeftEye.Y,
+		X: identifyRes.FacialArea.LeftEye.X,
+		Y: identifyRes.FacialArea.LeftEye.Y,
 	}
 
 	right_eye := Eye{
-		X: similarityRes.FacialArea.RightEye.X,
-		Y: similarityRes.FacialArea.RightEye.Y,
+		X: identifyRes.FacialArea.RightEye.X,
+		Y: identifyRes.FacialArea.RightEye.Y,
 	}
 
-	similarityResponse := SimilarityResponse{
+	identifyResponse := SimilarityResponse{
 		SimilarURLs: similarURLs,
 		FacialArea: FacialArea{
-			X:         similarityRes.FacialArea.X,
-			Y:         similarityRes.FacialArea.Y,
-			W:         similarityRes.FacialArea.W,
-			H:         similarityRes.FacialArea.H,
+			X:         identifyRes.FacialArea.X,
+			Y:         identifyRes.FacialArea.Y,
+			W:         identifyRes.FacialArea.W,
+			H:         identifyRes.FacialArea.H,
 			LEFT_EYE:  left_eye,
 			RIGHT_EYE: right_eye,
 		},
@@ -219,11 +241,11 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonWriter := json.NewEncoder(w)
-	err = jsonWriter.Encode(similarityResponse)
+	err = jsonWriter.Encode(identifyResponse)
 
 	if err != nil {
 		log.Printf("Response encoding failure!, err=(%v)", err)
-		http.Error(w, fmt.Sprintf("Response encoding failure!, err=(%v)", err), http.StatusInternalServerError)
+		http.Error(w, "Failed to create response, please wait and try again", http.StatusInternalServerError)
 		return
 	}
 }

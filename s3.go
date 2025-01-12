@@ -77,11 +77,11 @@ func storeS3(buf []byte, filename string) (bool, error) {
 
 func deleteS3(filename string) (bool, error) {
 	ctx := context.Background()
-
 	_, err := s3Client.DeleteObjectWithContext(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(bucketName),
 		Key:    aws.String(filename),
 	})
+
 	if err != nil {
 		log.Printf("Failed to delete %s from S3: %v", filename, err)
 		return false, err
@@ -93,6 +93,7 @@ func deleteS3(filename string) (bool, error) {
 		Bucket: aws.String(bucketName),
 		Key:    aws.String(filename),
 	})
+
 	if err != nil {
 		log.Printf("Error while waiting for object %s to be deleted: %v", filename, err)
 		return false, err
