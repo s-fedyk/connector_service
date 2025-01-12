@@ -6,7 +6,7 @@ metadata:
 data:
   MILVUS_URL: "milvus-demo.milvus.svc.cluster.local:19530"
   SIMILARITY_SERVICE_URL: "similarity-service.default.svc.cluster.local:80"
-  ANALYSER_SERVICE_URL: "analyser-service.default.svc.cluster.local:80"
+  ANALYZER_SERVICE_URL: "analyser-service.default.svc.cluster.local:80"
   REDIS_URL: "similarity-image-cache.wutpwp.ng.0001.use2.cache.amazonaws.com:6379"
   PROMETHEUS_URL: "http://prometheus-server.monitoring.svc.cluster.local"
   S3_BUCKET: "similarity-image-store"
