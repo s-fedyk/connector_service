@@ -2,8 +2,9 @@ package main
 
 import (
 	"bytes"
-	analyzer "connector/gen/analyzer" // import path to your generated files
-	embedder "connector/gen/embedder" // import path to your generated files
+	analyzer "connector/gen/analyzer"         // import path to your generated files
+	embedder "connector/gen/embedder"         // import path to your generated files
+	preprocessor "connector/gen/preprocessor" // import path to your generated files
 	"context"
 	"encoding/json"
 	"fmt"
@@ -27,6 +28,7 @@ import (
 
 var similarityClient embedder.ImageServiceClient
 var analyzerClient analyzer.AnalyzerClient
+var preprocessorClient preprocessor.PreprocessorClient
 
 func init() {
 	log.Print("Initializing similarity client connection...")
@@ -62,6 +64,23 @@ func init() {
 	analyzerClient = analyzer.NewAnalyzerClient(conn)
 
 	log.Print("analyzer client connection established!")
+
+	log.Print("Initializing preprocessor client connection...")
+
+	preprocessorURL := os.Getenv("PREPROCESSOR_SERVICE_URL")
+	if preprocessorURL == "" {
+		log.Fatal("PREPROCESSOR_SERVICE_URL environment variable is not set")
+	}
+
+	conn, err = grpc.NewClient(preprocessorURL, grpc.WithTransportCredentials(insecure.NewCredentials()))
+
+	if err != nil {
+		log.Fatalf("failed to connect to Preprocessor Service gRPC server: %v", err)
+	}
+
+	preprocessorClient = preprocessor.NewPreprocessorClient(conn)
+
+	log.Print("preprocessor client connection established!")
 }
 
 func toJPEG(file multipart.File) (*bytes.Buffer, error) {
@@ -153,18 +172,31 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tempName := guid.NewString()
+	context := context.Background()
 
 	storeS3(buffer.Bytes(), tempName)
 
+	preprocessRequest := &preprocessor.PreprocessRequest{
+		BaseImage: &preprocessor.Image{Url: tempName},
+	}
+
+	preprocessResponse, preprocessErr := preprocessorClient.Preprocess(context, preprocessRequest)
+
+	if preprocessErr != nil {
+		log.Printf("Preprocess call failed, err=(%v)", preprocessErr)
+		http.Error(w, "Failed to analyze image, please wait and try again", http.StatusInternalServerError)
+		return
+	}
+
+	processedURL := preprocessResponse.ProcessedImage.Url
+
 	similarityRequest := &embedder.IdentifyRequest{
-		BaseImage: &embedder.Image{Url: tempName},
+		BaseImage: &embedder.Image{Url: processedURL},
 	}
 
 	analysisRequest := &analyzer.AnalyzeRequest{
-		BaseImage: &analyzer.Image{Url: tempName},
+		BaseImage: &analyzer.Image{Url: processedURL},
 	}
-
-	context := context.Background()
 
 	var wg sync.WaitGroup
 	wg.Add(2)

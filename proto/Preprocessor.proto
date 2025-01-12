@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package Preprocessor;
+
+option go_package = "../gen/preprocessor";
+
+service Preprocessor {
+  rpc Preprocess(PreprocessRequest) returns (PreprocessResponse) {}
+}
+
+message Image { string url = 1; }
+
+message PreprocessRequest { Image base_image = 1; }
+
+message PreprocessResponse {
+  Image processed_image = 1;
+  int32 scale_w = 2;
+  int32 scale_h = 3;
+}

@@ -4,7 +4,7 @@
 // - protoc             v5.29.2
 // source: proto/Analysis.proto
 
-package analyser
+package analyzer
 
 import (
 	context "context"
@@ -19,101 +19,101 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Analyser_Analyze_FullMethodName = "/Analyser.Analyser/Analyze"
+	Analyzer_Analyze_FullMethodName = "/Analyzer.Analyzer/Analyze"
 )
 
-// AnalyserClient is the client API for Analyser service.
+// AnalyzerClient is the client API for Analyzer service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type AnalyserClient interface {
+type AnalyzerClient interface {
 	Analyze(ctx context.Context, in *AnalyzeRequest, opts ...grpc.CallOption) (*AnalyzeResponse, error)
 }
 
-type analyserClient struct {
+type analyzerClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewAnalyserClient(cc grpc.ClientConnInterface) AnalyserClient {
-	return &analyserClient{cc}
+func NewAnalyzerClient(cc grpc.ClientConnInterface) AnalyzerClient {
+	return &analyzerClient{cc}
 }
 
-func (c *analyserClient) Analyze(ctx context.Context, in *AnalyzeRequest, opts ...grpc.CallOption) (*AnalyzeResponse, error) {
+func (c *analyzerClient) Analyze(ctx context.Context, in *AnalyzeRequest, opts ...grpc.CallOption) (*AnalyzeResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(AnalyzeResponse)
-	err := c.cc.Invoke(ctx, Analyser_Analyze_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Analyzer_Analyze_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// AnalyserServer is the server API for Analyser service.
-// All implementations must embed UnimplementedAnalyserServer
+// AnalyzerServer is the server API for Analyzer service.
+// All implementations must embed UnimplementedAnalyzerServer
 // for forward compatibility.
-type AnalyserServer interface {
+type AnalyzerServer interface {
 	Analyze(context.Context, *AnalyzeRequest) (*AnalyzeResponse, error)
-	mustEmbedUnimplementedAnalyserServer()
+	mustEmbedUnimplementedAnalyzerServer()
 }
 
-// UnimplementedAnalyserServer must be embedded to have
+// UnimplementedAnalyzerServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
 // pointer dereference when methods are called.
-type UnimplementedAnalyserServer struct{}
+type UnimplementedAnalyzerServer struct{}
 
-func (UnimplementedAnalyserServer) Analyze(context.Context, *AnalyzeRequest) (*AnalyzeResponse, error) {
+func (UnimplementedAnalyzerServer) Analyze(context.Context, *AnalyzeRequest) (*AnalyzeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Analyze not implemented")
 }
-func (UnimplementedAnalyserServer) mustEmbedUnimplementedAnalyserServer() {}
-func (UnimplementedAnalyserServer) testEmbeddedByValue()                  {}
+func (UnimplementedAnalyzerServer) mustEmbedUnimplementedAnalyzerServer() {}
+func (UnimplementedAnalyzerServer) testEmbeddedByValue()                  {}
 
-// UnsafeAnalyserServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to AnalyserServer will
+// UnsafeAnalyzerServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to AnalyzerServer will
 // result in compilation errors.
-type UnsafeAnalyserServer interface {
-	mustEmbedUnimplementedAnalyserServer()
+type UnsafeAnalyzerServer interface {
+	mustEmbedUnimplementedAnalyzerServer()
 }
 
-func RegisterAnalyserServer(s grpc.ServiceRegistrar, srv AnalyserServer) {
-	// If the following call pancis, it indicates UnimplementedAnalyserServer was
+func RegisterAnalyzerServer(s grpc.ServiceRegistrar, srv AnalyzerServer) {
+	// If the following call pancis, it indicates UnimplementedAnalyzerServer was
 	// embedded by pointer and is nil.  This will cause panics if an
 	// unimplemented method is ever invoked, so we test this at initialization
 	// time to prevent it from happening at runtime later due to I/O.
 	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
 		t.testEmbeddedByValue()
 	}
-	s.RegisterService(&Analyser_ServiceDesc, srv)
+	s.RegisterService(&Analyzer_ServiceDesc, srv)
 }
 
-func _Analyser_Analyze_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Analyzer_Analyze_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(AnalyzeRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(AnalyserServer).Analyze(ctx, in)
+		return srv.(AnalyzerServer).Analyze(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Analyser_Analyze_FullMethodName,
+		FullMethod: Analyzer_Analyze_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AnalyserServer).Analyze(ctx, req.(*AnalyzeRequest))
+		return srv.(AnalyzerServer).Analyze(ctx, req.(*AnalyzeRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// Analyser_ServiceDesc is the grpc.ServiceDesc for Analyser service.
+// Analyzer_ServiceDesc is the grpc.ServiceDesc for Analyzer service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var Analyser_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "Analyser.Analyser",
-	HandlerType: (*AnalyserServer)(nil),
+var Analyzer_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "Analyzer.Analyzer",
+	HandlerType: (*AnalyzerServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "Analyze",
-			Handler:    _Analyser_Analyze_Handler,
+			Handler:    _Analyzer_Analyze_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
