@@ -4,7 +4,7 @@
 // - protoc             v5.29.2
 // source: proto/ImageService.proto
 
-package gen
+package embedder
 
 import (
 	context "context"
