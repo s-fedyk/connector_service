@@ -2,7 +2,7 @@ package main
 
 import (
 	"bytes"
-	analyser "connector/gen/analyser" // import path to your generated files
+	analyzer "connector/gen/analyzer" // import path to your generated files
 	embedder "connector/gen/embedder" // import path to your generated files
 	"context"
 	"encoding/json"
@@ -25,7 +25,7 @@ import (
 )
 
 var similarityClient embedder.ImageServiceClient
-var analyserClient analyser.AnalyserClient
+var analyzerClient analyzer.AnalyzerClient
 
 func init() {
 	log.Print("Initializing similarity client connection...")
@@ -45,22 +45,22 @@ func init() {
 
 	log.Print("Similarity client connection established!")
 
-	log.Print("Initializing analyser client connection...")
+	log.Print("Initializing analyzer client connection...")
 
-	analyserURL := os.Getenv("ANALYSER_SERVICE_URL")
-	if analyserURL == "" {
-		log.Fatal("ANALYSER_SERVICE_URL environment variable is not set")
+	analyzerURL := os.Getenv("ANALYZER_SERVICE_URL")
+	if analyzerURL == "" {
+		log.Fatal("ANALYZER_SERVICE_URL environment variable is not set")
 	}
 
-	conn, err = grpc.NewClient(similarityURL, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err = grpc.NewClient(analyzerURL, grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 	if err != nil {
-		log.Fatalf("failed to connect to Analyser Service gRPC server: %v", err)
+		log.Fatalf("failed to connect to analyzer Service gRPC server: %v", err)
 	}
 
-	analyserClient = analyser.NewAnalyserClient(conn)
+	analyzerClient = analyzer.NewAnalyzerClient(conn)
 
-	log.Print("Analyser client connection established!")
+	log.Print("analyzer client connection established!")
 }
 
 func toJPEG(file multipart.File) (*bytes.Buffer, error) {
@@ -159,14 +159,14 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 		BaseImage: &embedder.Image{Url: tempName},
 	}
 
-	analysisRequest := &analyser.AnalyzeRequest{
-		BaseImage: &analyser.Image{Url: tempName},
+	analysisRequest := &analyzer.AnalyzeRequest{
+		BaseImage: &analyzer.Image{Url: tempName},
 	}
 
 	context := context.Background()
 
 	analysisStart := time.Now()
-	analysisRes, err := analyserClient.Analyze(context, analysisRequest)
+	analysisRes, err := analyzerClient.Analyze(context, analysisRequest)
 	analysisDuration := time.Since(analysisStart)
 	analysisHistogram.With(prometheus.Labels{}).Observe(analysisDuration.Seconds())
 
