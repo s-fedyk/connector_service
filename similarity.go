@@ -244,23 +244,26 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 	databaseDuration := time.Since(databaseStart)
 	databaseHistogram.With(prometheus.Labels{}).Observe(databaseDuration.Seconds())
 
+	scale_inv_y := 1.0 / preprocessResponse.ScaleH
+	scale_inv_x := 1.0 / preprocessResponse.ScaleW
+
 	left_eye := Eye{
-		X: identifyRes.FacialArea.LeftEye.X,
-		Y: identifyRes.FacialArea.LeftEye.Y,
+		X: int32(float32(identifyRes.FacialArea.LeftEye.X) * scale_inv_x),
+		Y: int32(float32(identifyRes.FacialArea.LeftEye.Y) * scale_inv_y),
 	}
 
 	right_eye := Eye{
-		X: identifyRes.FacialArea.RightEye.X,
-		Y: identifyRes.FacialArea.RightEye.Y,
+		X: int32(float32(identifyRes.FacialArea.RightEye.X) * scale_inv_x),
+		Y: int32(float32(identifyRes.FacialArea.RightEye.Y) * scale_inv_y),
 	}
 
 	identifyResponse := SimilarityResponse{
 		SimilarURLs: similarURLs,
 		FacialArea: FacialArea{
-			X:         identifyRes.FacialArea.X,
-			Y:         identifyRes.FacialArea.Y,
-			W:         identifyRes.FacialArea.W,
-			H:         identifyRes.FacialArea.H,
+			X:         int32(float32(identifyRes.FacialArea.X) * scale_inv_x),
+			Y:         int32(float32(identifyRes.FacialArea.Y) * scale_inv_y),
+			W:         int32(float32(identifyRes.FacialArea.W) * scale_inv_x),
+			H:         int32(float32(identifyRes.FacialArea.H) * scale_inv_y),
 			LEFT_EYE:  left_eye,
 			RIGHT_EYE: right_eye,
 		},
