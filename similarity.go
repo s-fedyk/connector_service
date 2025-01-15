@@ -2,9 +2,9 @@ package main
 
 import (
 	"bytes"
-	analyzer "connector/gen/analyzer"         // import path to your generated files
-	embedder "connector/gen/embedder"         // import path to your generated files
-	preprocessor "connector/gen/preprocessor" // import path to your generated files
+	analyzer "connector/gen/analyzer"
+	embedder "connector/gen/embedder"
+	preprocessor "connector/gen/preprocessor"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -246,6 +246,8 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 
 	scale_inv_y := 1.0 / preprocessResponse.ScaleH
 	scale_inv_x := 1.0 / preprocessResponse.ScaleW
+	LeftPad := preprocessResponse.LeftPad
+	TopPad := preprocessResponse.TopPad
 
 	left_eye := Eye{
 		X: int32(float32(identifyRes.FacialArea.LeftEye.X) * scale_inv_x),
@@ -260,8 +262,8 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 	identifyResponse := SimilarityResponse{
 		SimilarURLs: similarURLs,
 		FacialArea: FacialArea{
-			X:         int32(float32(identifyRes.FacialArea.X) * scale_inv_x),
-			Y:         int32(float32(identifyRes.FacialArea.Y) * scale_inv_y),
+			X:         int32(float32(identifyRes.FacialArea.X)*scale_inv_x) - LeftPad,
+			Y:         int32(float32(identifyRes.FacialArea.Y)*scale_inv_y) - TopPad,
 			W:         int32(float32(identifyRes.FacialArea.W) * scale_inv_x),
 			H:         int32(float32(identifyRes.FacialArea.H) * scale_inv_y),
 			LEFT_EYE:  left_eye,
