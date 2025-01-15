@@ -17,13 +17,13 @@ import (
 var milvusClient *client.Client
 
 type milvusSecret struct {
-  MILVUS_URI string
-  MILVUS_USER string
-  MILVUS_PASS string
+	MILVUS_URI  string
+	MILVUS_USER string
+	MILVUS_PASS string
 }
 
 func getAWSSecret() milvusSecret {
-  secretName := "prod/similarity/milvus"
+	secretName := "prod/similarity/milvus"
 	region := "us-east-2"
 
 	config, err := config.LoadDefaultConfig(context.Background(), config.WithRegion(region))
@@ -36,7 +36,7 @@ func getAWSSecret() milvusSecret {
 
 	input := &secretsmanager.GetSecretValueInput{
 		SecretId:     aws.String(secretName),
-		VersionStage: aws.String("AWSCURRENT"), 
+		VersionStage: aws.String("AWSCURRENT"),
 	}
 
 	result, err := svc.GetSecretValue(context.Background(), input)
@@ -44,36 +44,36 @@ func getAWSSecret() milvusSecret {
 		log.Fatal(err.Error())
 	}
 
-  var secret milvusSecret;
-  err = json.Unmarshal([]byte(*result.SecretString), &secret)
+	var secret milvusSecret
+	err = json.Unmarshal([]byte(*result.SecretString), &secret)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
-  return secret
+	return secret
 }
 
 func init() {
 	log.Print("Initializing Milvus...")
-  
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-  var secret milvusSecret
+	var secret milvusSecret
 
-  if os.Getenv("ENV") == "DEV" {
-    secret.MILVUS_URI = os.Getenv("MILVUS_URI")
-    secret.MILVUS_USER = os.Getenv("MILVUS_USER")
-    secret.MILVUS_PASS = os.Getenv("MILVUS_PASS")
-  } else {
-    secret = getAWSSecret()
-  }
-  
+	if os.Getenv("ENV") == "DEV" {
+		secret.MILVUS_URI = os.Getenv("MILVUS_URI")
+		secret.MILVUS_USER = os.Getenv("MILVUS_USER")
+		secret.MILVUS_PASS = os.Getenv("MILVUS_PASS")
+	} else {
+		secret = getAWSSecret()
+	}
+
 	client, err := client.NewClient(ctx,
 		client.Config{
-			Address: secret.MILVUS_URI,
-      Username: secret.MILVUS_USER,
-      Password: secret.MILVUS_PASS,
-			DBName:  "default",
+			Address:  secret.MILVUS_URI,
+			Username: secret.MILVUS_USER,
+			Password: secret.MILVUS_PASS,
+			DBName:   "default",
 		},
 	)
 
@@ -104,7 +104,7 @@ func collectionPresent() (bool, error) {
 
 func querySimilar(embedding []float32, context context.Context) []string {
 	log.Printf("querySimilar")
-  log.Printf("%v", embedding)
+	log.Printf("%v", embedding)
 
 	sp, _ := entity.NewIndexFlatSearchParam()
 
@@ -125,16 +125,16 @@ func querySimilar(embedding []float32, context context.Context) []string {
 		log.Printf("Search error, err=(%v)", err)
 	}
 
-  URLs := make([]string, 10);
+	URLs := make([]string, 10)
 
-  for _, searchResult := range res {
-    for idx := range(10) {
-      URL,_ := searchResult.Fields.GetColumn("filepath").GetAsString(idx)
-      URLs[idx] = URL
-    }
-  }
+	for _, searchResult := range res {
+		for idx := range 10 {
+			URL, _ := searchResult.Fields.GetColumn("filepath").GetAsString(idx)
+			URLs[idx] = URL
+		}
+	}
 
-  log.Printf("querySimilar success")
+	log.Printf("querySimilar success")
 
 	return URLs
 }

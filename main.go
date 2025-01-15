@@ -2,13 +2,13 @@ package main
 
 import (
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"log"
 	"net/http"
-  "github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func health(w http.ResponseWriter, r *http.Request) {
-  log.Print("health check")
+	log.Print("health check")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Healthy"))
 }
@@ -16,7 +16,7 @@ func health(w http.ResponseWriter, r *http.Request) {
 func main() {
 	http.HandleFunc("/similarity", similarity)
 	http.HandleFunc("/health", health)
-  http.Handle("/metrics", promhttp.Handler()) // Expose metrics endpoint
+	http.Handle("/metrics", promhttp.Handler()) // Expose metrics endpoint
 
 	fmt.Println("Starting server...")
 	err := http.ListenAndServe(":80", nil)
