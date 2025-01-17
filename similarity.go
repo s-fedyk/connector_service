@@ -7,7 +7,6 @@ import (
 	preprocessor "connector/gen/preprocessor"
 	"context"
 	"encoding/json"
-	"fmt"
 	"image"
 	"image/jpeg"
 	_ "image/png"
@@ -143,18 +142,17 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	log.Print("Similarity request!")
-	requestsCounter.With(prometheus.Labels{}).Inc()
-
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
-	// Handle OPTIONS method
 	if r.Method == "OPTIONS" {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
+
+	log.Print("Similarity request!")
+	requestsCounter.With(prometheus.Labels{}).Inc()
 
 	similarityStart := time.Now()
 	defer func() {
@@ -168,7 +166,7 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		log.Printf("toJPEG call failure, err=(%v)", err)
-		http.Error(w, fmt.Sprintf("Failed to convert image to JPEG", err), http.StatusInternalServerError)
+		http.Error(w, "Failed to convert image to expected format. Only PNG and JPEG are supported.", http.StatusInternalServerError)
 	}
 
 	tempName := guid.NewString()
@@ -184,7 +182,7 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 
 	if preprocessErr != nil {
 		log.Printf("Preprocess call failed, err=(%v)", preprocessErr)
-		http.Error(w, "Failed to analyze image, please wait and try again", http.StatusInternalServerError)
+		http.Error(w, "Failed to preprocess image, please wait and try again", http.StatusInternalServerError)
 		return
 	}
 
@@ -204,6 +202,7 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 	var analysisRes *analyzer.AnalyzeResponse
 	var identifyRes *embedder.IdentifyResponse
 	var analysisErr, identifyErr error
+	var similarURLs []string
 
 	go func() {
 		defer wg.Done()
@@ -219,12 +218,20 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 		identifyRes, identifyErr = similarityClient.Identify(context, similarityRequest)
 		embeddingDuration := time.Since(embeddingStart)
 		modelHistogram.With(prometheus.Labels{}).Observe(embeddingDuration.Seconds())
+
+		if identifyErr == nil {
+			databaseStart := time.Now()
+			similarURLs = querySimilar(identifyRes.Embedding, context)
+			databaseDuration := time.Since(databaseStart)
+			databaseHistogram.With(prometheus.Labels{}).Observe(databaseDuration.Seconds())
+		}
 	}()
 
 	wg.Wait()
 
 	go func() {
 		deleteS3(tempName)
+		deleteS3(processedURL)
 	}()
 
 	if analysisErr != nil {
@@ -238,11 +245,6 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to create face embedding, please wait and try again", http.StatusInternalServerError)
 		return
 	}
-
-	databaseStart := time.Now()
-	similarURLs := querySimilar(identifyRes.Embedding, context)
-	databaseDuration := time.Since(databaseStart)
-	databaseHistogram.With(prometheus.Labels{}).Observe(databaseDuration.Seconds())
 
 	scale_inv_y := 1.0 / preprocessResponse.ScaleH
 	scale_inv_x := 1.0 / preprocessResponse.ScaleW
