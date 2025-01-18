@@ -25,7 +25,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-var similarityClient embedder.ImageServiceClient
+var similarityClient embedder.EmbedderClient
 var analyzerClient analyzer.AnalyzerClient
 var preprocessorClient preprocessor.PreprocessorClient
 
@@ -43,7 +43,7 @@ func init() {
 		log.Fatalf("failed to connect to Similarity Service gRPC server: %v", err)
 	}
 
-	similarityClient = embedder.NewImageServiceClient(conn)
+	similarityClient = embedder.NewEmbedderClient(conn)
 
 	log.Print("Similarity client connection established!")
 
@@ -188,7 +188,7 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 
 	processedURL := preprocessResponse.ProcessedImage.Url
 
-	similarityRequest := &embedder.IdentifyRequest{
+	similarityRequest := &embedder.EmbedRequest{
 		BaseImage: &embedder.Image{Url: processedURL},
 	}
 
@@ -200,8 +200,8 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 	wg.Add(2)
 
 	var analysisRes *analyzer.AnalyzeResponse
-	var identifyRes *embedder.IdentifyResponse
-	var analysisErr, identifyErr error
+	var embedRes *embedder.EmbedResponse
+	var analysisErr, embedErr error
 	var similarURLs []string
 
 	go func() {
@@ -215,13 +215,13 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		defer wg.Done()
 		embeddingStart := time.Now()
-		identifyRes, identifyErr = similarityClient.Identify(context, similarityRequest)
+		embedRes, embedErr = similarityClient.Embed(context, similarityRequest)
 		embeddingDuration := time.Since(embeddingStart)
 		modelHistogram.With(prometheus.Labels{}).Observe(embeddingDuration.Seconds())
 
-		if identifyErr == nil {
+		if embedErr == nil {
 			databaseStart := time.Now()
-			similarURLs = querySimilar(identifyRes.Embedding, context)
+			similarURLs = querySimilar(embedRes.Embedding, context)
 			databaseDuration := time.Since(databaseStart)
 			databaseHistogram.With(prometheus.Labels{}).Observe(databaseDuration.Seconds())
 		}
@@ -231,7 +231,6 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 
 	go func() {
 		deleteS3(tempName)
-		deleteS3(processedURL)
 	}()
 
 	if analysisErr != nil {
@@ -240,34 +239,29 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if identifyErr != nil {
-		log.Printf("Identify call failed, err=(%v)", identifyErr)
+	if embedErr != nil {
+		log.Printf("Embed call failed, err=(%v)", embedErr)
 		http.Error(w, "Failed to create face embedding, please wait and try again", http.StatusInternalServerError)
 		return
 	}
 
-	scale_inv_y := 1.0 / preprocessResponse.ScaleH
-	scale_inv_x := 1.0 / preprocessResponse.ScaleW
-	LeftPad := preprocessResponse.LeftPad
-	TopPad := preprocessResponse.TopPad
-
 	left_eye := Eye{
-		X: int32(float32(identifyRes.FacialArea.LeftEye.X) * scale_inv_x),
-		Y: int32(float32(identifyRes.FacialArea.LeftEye.Y) * scale_inv_y),
+		X: int32(float32(preprocessResponse.FacialArea.LeftEye.X)),
+		Y: int32(float32(preprocessResponse.FacialArea.LeftEye.Y)),
 	}
 
 	right_eye := Eye{
-		X: int32(float32(identifyRes.FacialArea.RightEye.X) * scale_inv_x),
-		Y: int32(float32(identifyRes.FacialArea.RightEye.Y) * scale_inv_y),
+		X: int32(float32(preprocessResponse.FacialArea.RightEye.X)),
+		Y: int32(float32(preprocessResponse.FacialArea.RightEye.Y)),
 	}
 
-	identifyResponse := SimilarityResponse{
+	response := SimilarityResponse{
 		SimilarURLs: similarURLs,
 		FacialArea: FacialArea{
-			X:         int32(float32(identifyRes.FacialArea.X)*scale_inv_x) - LeftPad,
-			Y:         int32(float32(identifyRes.FacialArea.Y)*scale_inv_y) - TopPad,
-			W:         int32(float32(identifyRes.FacialArea.W) * scale_inv_x),
-			H:         int32(float32(identifyRes.FacialArea.H) * scale_inv_y),
+			X:         int32(float32(preprocessResponse.FacialArea.X)),
+			Y:         int32(float32(preprocessResponse.FacialArea.Y)),
+			W:         int32(float32(preprocessResponse.FacialArea.W)),
+			H:         int32(float32(preprocessResponse.FacialArea.H)),
 			LEFT_EYE:  left_eye,
 			RIGHT_EYE: right_eye,
 		},
@@ -280,7 +274,7 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonWriter := json.NewEncoder(w)
-	err = jsonWriter.Encode(identifyResponse)
+	err = jsonWriter.Encode(response)
 
 	if err != nil {
 		log.Printf("Response encoding failure!, err=(%v)", err)

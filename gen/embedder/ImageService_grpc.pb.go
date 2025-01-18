@@ -19,103 +19,101 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ImageService_Identify_FullMethodName = "/ImageService.ImageService/Identify"
+	Embedder_Embed_FullMethodName = "/Embedder.Embedder/Embed"
 )
 
-// ImageServiceClient is the client API for ImageService service.
+// EmbedderClient is the client API for Embedder service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type ImageServiceClient interface {
-	// takes a reference image, and a list of images to compare against
-	Identify(ctx context.Context, in *IdentifyRequest, opts ...grpc.CallOption) (*IdentifyResponse, error)
+type EmbedderClient interface {
+	Embed(ctx context.Context, in *EmbedRequest, opts ...grpc.CallOption) (*EmbedResponse, error)
 }
 
-type imageServiceClient struct {
+type embedderClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewImageServiceClient(cc grpc.ClientConnInterface) ImageServiceClient {
-	return &imageServiceClient{cc}
+func NewEmbedderClient(cc grpc.ClientConnInterface) EmbedderClient {
+	return &embedderClient{cc}
 }
 
-func (c *imageServiceClient) Identify(ctx context.Context, in *IdentifyRequest, opts ...grpc.CallOption) (*IdentifyResponse, error) {
+func (c *embedderClient) Embed(ctx context.Context, in *EmbedRequest, opts ...grpc.CallOption) (*EmbedResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(IdentifyResponse)
-	err := c.cc.Invoke(ctx, ImageService_Identify_FullMethodName, in, out, cOpts...)
+	out := new(EmbedResponse)
+	err := c.cc.Invoke(ctx, Embedder_Embed_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// ImageServiceServer is the server API for ImageService service.
-// All implementations must embed UnimplementedImageServiceServer
+// EmbedderServer is the server API for Embedder service.
+// All implementations must embed UnimplementedEmbedderServer
 // for forward compatibility.
-type ImageServiceServer interface {
-	// takes a reference image, and a list of images to compare against
-	Identify(context.Context, *IdentifyRequest) (*IdentifyResponse, error)
-	mustEmbedUnimplementedImageServiceServer()
+type EmbedderServer interface {
+	Embed(context.Context, *EmbedRequest) (*EmbedResponse, error)
+	mustEmbedUnimplementedEmbedderServer()
 }
 
-// UnimplementedImageServiceServer must be embedded to have
+// UnimplementedEmbedderServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
 // pointer dereference when methods are called.
-type UnimplementedImageServiceServer struct{}
+type UnimplementedEmbedderServer struct{}
 
-func (UnimplementedImageServiceServer) Identify(context.Context, *IdentifyRequest) (*IdentifyResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Identify not implemented")
+func (UnimplementedEmbedderServer) Embed(context.Context, *EmbedRequest) (*EmbedResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Embed not implemented")
 }
-func (UnimplementedImageServiceServer) mustEmbedUnimplementedImageServiceServer() {}
-func (UnimplementedImageServiceServer) testEmbeddedByValue()                      {}
+func (UnimplementedEmbedderServer) mustEmbedUnimplementedEmbedderServer() {}
+func (UnimplementedEmbedderServer) testEmbeddedByValue()                  {}
 
-// UnsafeImageServiceServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to ImageServiceServer will
+// UnsafeEmbedderServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to EmbedderServer will
 // result in compilation errors.
-type UnsafeImageServiceServer interface {
-	mustEmbedUnimplementedImageServiceServer()
+type UnsafeEmbedderServer interface {
+	mustEmbedUnimplementedEmbedderServer()
 }
 
-func RegisterImageServiceServer(s grpc.ServiceRegistrar, srv ImageServiceServer) {
-	// If the following call pancis, it indicates UnimplementedImageServiceServer was
+func RegisterEmbedderServer(s grpc.ServiceRegistrar, srv EmbedderServer) {
+	// If the following call pancis, it indicates UnimplementedEmbedderServer was
 	// embedded by pointer and is nil.  This will cause panics if an
 	// unimplemented method is ever invoked, so we test this at initialization
 	// time to prevent it from happening at runtime later due to I/O.
 	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
 		t.testEmbeddedByValue()
 	}
-	s.RegisterService(&ImageService_ServiceDesc, srv)
+	s.RegisterService(&Embedder_ServiceDesc, srv)
 }
 
-func _ImageService_Identify_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(IdentifyRequest)
+func _Embedder_Embed_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EmbedRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ImageServiceServer).Identify(ctx, in)
+		return srv.(EmbedderServer).Embed(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: ImageService_Identify_FullMethodName,
+		FullMethod: Embedder_Embed_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ImageServiceServer).Identify(ctx, req.(*IdentifyRequest))
+		return srv.(EmbedderServer).Embed(ctx, req.(*EmbedRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// ImageService_ServiceDesc is the grpc.ServiceDesc for ImageService service.
+// Embedder_ServiceDesc is the grpc.ServiceDesc for Embedder service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var ImageService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "ImageService.ImageService",
-	HandlerType: (*ImageServiceServer)(nil),
+var Embedder_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "Embedder.Embedder",
+	HandlerType: (*EmbedderServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Identify",
-			Handler:    _ImageService_Identify_Handler,
+			MethodName: "Embed",
+			Handler:    _Embedder_Embed_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
