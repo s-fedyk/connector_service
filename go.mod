@@ -8,9 +8,11 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.28.7
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.34.8
 	github.com/beevik/guid v1.0.0
+	github.com/disintegration/imaging v1.6.2
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/milvus-io/milvus-sdk-go/v2 v2.4.2
 	github.com/prometheus/client_golang v1.20.5
+	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd
 	google.golang.org/grpc v1.69.2
 	google.golang.org/protobuf v1.35.1
 )
@@ -51,6 +53,7 @@ require (
 	github.com/tidwall/gjson v1.14.4 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
+	golang.org/x/image v0.0.0-20191009234506-e7c1f5e7dbb8 // indirect
 	golang.org/x/net v0.30.0 // indirect
 	golang.org/x/sync v0.8.0 // indirect
 	golang.org/x/sys v0.26.0 // indirect

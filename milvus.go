@@ -104,7 +104,6 @@ func collectionPresent() (bool, error) {
 
 func querySimilar(embedding []float32, context context.Context) []string {
 	log.Printf("querySimilar")
-	log.Printf("%v", embedding)
 
 	sp, _ := entity.NewIndexFlatSearchParam()
 

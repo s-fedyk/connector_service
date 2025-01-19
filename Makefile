@@ -22,5 +22,3 @@ proto:
 	protoc --go_out=./proto --go-grpc_out=./proto -I. proto/ImageService.proto
 	protoc --go_out=./proto --go-grpc_out=./proto -I. proto/Preprocessor.proto
 	protoc --go_out=./proto --go-grpc_out=./proto -I. proto/Analysis.proto
-
-

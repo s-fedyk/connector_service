@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/disintegration/imaging"
 	"image"
 	"image/jpeg"
 	_ "image/png"
@@ -18,6 +19,8 @@ import (
 	"runtime/debug"
 	"sync"
 	"time"
+
+	"github.com/rwcarlsen/goexif/exif"
 
 	"github.com/beevik/guid"
 
@@ -83,11 +86,70 @@ func init() {
 	log.Print("preprocessor client connection established!")
 }
 
+// fixOrientation rotates or flips the image based on EXIF orientation data
+func fixOrientation(img image.Image, exifData *exif.Exif) image.Image {
+	if exifData == nil {
+		return img
+	}
+
+	orientationTag, err := exifData.Get(exif.Orientation)
+	if err != nil {
+		log.Printf("Failed to get EXIF orientation: %v", err)
+		return img
+	}
+
+	orientation, err := orientationTag.Int(0)
+	if err != nil {
+		log.Printf("Failed to parse EXIF orientation: %v", err)
+		return img
+	}
+
+	// Adjust the image based on the orientation value
+	switch orientation {
+	case 2:
+		return imaging.FlipH(img)
+	case 3:
+		return imaging.Rotate180(img)
+	case 4:
+		return imaging.Rotate180(imaging.FlipH(img))
+	case 5:
+		return imaging.Rotate270(imaging.FlipH(img))
+	case 6:
+		return imaging.Rotate90(img)
+	case 7:
+		return imaging.Rotate90(imaging.FlipH(img))
+	case 8:
+		return imaging.Rotate270(img)
+	default:
+		return img // No adjustment needed
+	}
+}
+
 func toJPEG(file multipart.File) (*bytes.Buffer, error) {
+	// Read the entire file into a buffer for EXIF processing
+	fileBytes := bytes.NewBuffer(nil)
+	if _, err := fileBytes.ReadFrom(file); err != nil {
+		return nil, fmt.Errorf("failed to read file: %v", err)
+	}
+
+	// Extract EXIF data
+	exifData, err := exif.Decode(fileBytes)
+	if err != nil {
+		log.Printf("No EXIF data found or failed to decode EXIF: %v", err)
+	} else {
+		log.Print("EXIF Data:")
+		log.Print(exifData.String())
+	}
+
+	// Reset the buffer to read image data
+	file.Seek(0, 0)
+
 	img, _, err := image.Decode(file)
 	if err != nil {
 		return nil, err
 	}
+
+	img = fixOrientation(img, exifData)
 
 	var jpegBuffer bytes.Buffer
 	err = jpeg.Encode(&jpegBuffer, img, nil)
@@ -312,11 +374,6 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 		databaseDuration := time.Since(databaseStart)
 		databaseHistogram.With(prometheus.Labels{}).Observe(databaseDuration.Seconds())
 	}
-
-	go func() {
-		deleteS3(jobID)
-		deleteS3(processedID)
-	}()
 
 	if embedErr != nil {
 		log.Printf("Embed call failed, err=(%v)", embedErr)
