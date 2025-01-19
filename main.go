@@ -15,6 +15,7 @@ func health(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	http.HandleFunc("/similarity", similarity)
+	http.HandleFunc("/checkJob", checkJob)
 	http.HandleFunc("/health", health)
 	http.Handle("/metrics", promhttp.Handler()) // Expose metrics endpoint
 

@@ -7,6 +7,7 @@ import (
 	preprocessor "connector/gen/preprocessor"
 	"context"
 	"encoding/json"
+	"fmt"
 	"image"
 	"image/jpeg"
 	_ "image/png"
@@ -109,9 +110,9 @@ func newRequestContext(context *context.Context) {
 }
 
 type SimilarityResponse struct {
+	JobID       string     `json:"job_id"`
 	SimilarURLs []string   `json:"similar_urls"`
 	FacialArea  FacialArea `json:"facial_area"`
-	Analysis    Analysis   `json:"analysis"`
 }
 
 type Eye struct {
@@ -133,6 +134,35 @@ type Analysis struct {
 	GENDER  string `json:"gender"`
 	RACE    string `json:"race"`
 	AGE     string `json:"age"`
+}
+
+var analysisStore = sync.Map{}
+
+type AnalysisJob struct {
+	Status      string
+	CreatedAt   time.Time
+	Result      string
+	ErrorString string
+}
+
+func storeInitialAnalysisJob(jobID string) {
+	analysisStore.Store(jobID, &AnalysisJob{
+		Status:    "pending",
+		CreatedAt: time.Now(),
+	})
+}
+
+func setAnalysisField(jobID, value string) {
+	val, ok := analysisStore.Load(jobID)
+	if !ok {
+		return
+	}
+	job := val.(*AnalysisJob)
+
+	job.Status = "ready"
+	job.Result = value
+
+	analysisStore.Store(jobID, job)
 }
 
 func similarity(w http.ResponseWriter, r *http.Request) {
@@ -169,13 +199,13 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to convert image to expected format. Only PNG and JPEG are supported.", http.StatusInternalServerError)
 	}
 
-	tempName := guid.NewString()
+	jobID := guid.NewString()
 	context := context.Background()
 
-	storeS3(buffer.Bytes(), tempName)
+	storeS3(buffer.Bytes(), jobID)
 
 	preprocessRequest := &preprocessor.PreprocessRequest{
-		BaseImage: &preprocessor.Image{Url: tempName},
+		BaseImage: &preprocessor.Image{Url: jobID},
 	}
 
 	preprocessResponse, preprocessErr := preprocessorClient.Preprocess(context, preprocessRequest)
@@ -186,58 +216,107 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	processedURL := preprocessResponse.ProcessedImage.Url
+	processedID := preprocessResponse.ProcessedImage.Url
 
 	similarityRequest := &embedder.EmbedRequest{
-		BaseImage: &embedder.Image{Url: processedURL},
+		BaseImage: &embedder.Image{Url: processedID},
 	}
 
-	analysisRequest := &analyzer.AnalyzeRequest{
-		BaseImage: &analyzer.Image{Url: processedURL},
+	storeInitialAnalysisJob(fmt.Sprintf("%v-age", jobID))
+	storeInitialAnalysisJob(fmt.Sprintf("%v-race", jobID))
+	storeInitialAnalysisJob(fmt.Sprintf("%v-gender", jobID))
+	storeInitialAnalysisJob(fmt.Sprintf("%v-emotion", jobID))
+
+	genderAnalysisRequest := &analyzer.AnalyzeRequest{
+		BaseImage: &analyzer.Image{Url: processedID},
+		Model:     []string{"gender"},
+	}
+	ageAnalysisRequest := &analyzer.AnalyzeRequest{
+		BaseImage: &analyzer.Image{Url: processedID},
+		Model:     []string{"age"},
+	}
+	raceAnalysisRequest := &analyzer.AnalyzeRequest{
+		BaseImage: &analyzer.Image{Url: processedID},
+		Model:     []string{"race"},
+	}
+	emotionAnalysisRequest := &analyzer.AnalyzeRequest{
+		BaseImage: &analyzer.Image{Url: processedID},
+		Model:     []string{"emotion"},
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(2)
-
-	var analysisRes *analyzer.AnalyzeResponse
 	var embedRes *embedder.EmbedResponse
-	var analysisErr, embedErr error
+	var embedErr error
 	var similarURLs []string
 
 	go func() {
-		defer wg.Done()
 		analysisStart := time.Now()
-		analysisRes, analysisErr = analyzerClient.Analyze(context, analysisRequest)
+		ageAnalysisRes, ageAnalysisErr := analyzerClient.Analyze(context, ageAnalysisRequest)
 		analysisDuration := time.Since(analysisStart)
 		analysisHistogram.With(prometheus.Labels{}).Observe(analysisDuration.Seconds())
-	}()
 
-	go func() {
-		defer wg.Done()
-		embeddingStart := time.Now()
-		embedRes, embedErr = similarityClient.Embed(context, similarityRequest)
-		embeddingDuration := time.Since(embeddingStart)
-		modelHistogram.With(prometheus.Labels{}).Observe(embeddingDuration.Seconds())
-
-		if embedErr == nil {
-			databaseStart := time.Now()
-			similarURLs = querySimilar(embedRes.Embedding, context)
-			databaseDuration := time.Since(databaseStart)
-			databaseHistogram.With(prometheus.Labels{}).Observe(databaseDuration.Seconds())
+		if ageAnalysisErr != nil {
+			log.Printf("Analyze call failed, err=(%v)", ageAnalysisErr)
+			http.Error(w, "Failed to analyze age, please wait and try again", http.StatusInternalServerError)
+			return
 		}
+		setAnalysisField(fmt.Sprintf("%v-age", jobID), ageAnalysisRes.Results[0].Result)
 	}()
+	go func() {
+		analysisStart := time.Now()
+		raceAnalysisRes, raceAnalysisErr := analyzerClient.Analyze(context, raceAnalysisRequest)
+		analysisDuration := time.Since(analysisStart)
+		analysisHistogram.With(prometheus.Labels{}).Observe(analysisDuration.Seconds())
 
-	wg.Wait()
+		if raceAnalysisErr != nil {
+			log.Printf("Analyze call failed, err=(%v)", raceAnalysisErr)
+			http.Error(w, "Failed to analyze race, please wait and try again", http.StatusInternalServerError)
+			return
+		}
+		setAnalysisField(fmt.Sprintf("%v-race", jobID), raceAnalysisRes.Results[0].Result)
+	}()
+	go func() {
+		analysisStart := time.Now()
+		emotionAnalysisRes, emotionAnalysisErr := analyzerClient.Analyze(context, emotionAnalysisRequest)
+		analysisDuration := time.Since(analysisStart)
+		analysisHistogram.With(prometheus.Labels{}).Observe(analysisDuration.Seconds())
+
+		if emotionAnalysisErr != nil {
+			log.Printf("Analyze call failed, err=(%v)", emotionAnalysisErr)
+			http.Error(w, "Failed to analyze emotion, please wait and try again", http.StatusInternalServerError)
+			return
+		}
+		setAnalysisField(fmt.Sprintf("%v-emotion", jobID), emotionAnalysisRes.Results[0].Result)
+	}()
 
 	go func() {
-		deleteS3(tempName)
+		analysisStart := time.Now()
+		genderAnalysisRes, genderAnalysisErr := analyzerClient.Analyze(context, genderAnalysisRequest)
+		analysisDuration := time.Since(analysisStart)
+		analysisHistogram.With(prometheus.Labels{}).Observe(analysisDuration.Seconds())
+
+		if genderAnalysisErr != nil {
+			log.Printf("Analyze call failed, err=(%v)", genderAnalysisErr)
+			return
+		}
+		setAnalysisField(fmt.Sprintf("%v-gender", jobID), genderAnalysisRes.Results[0].Result)
 	}()
 
-	if analysisErr != nil {
-		log.Printf("Analyze call failed, err=(%v)", analysisErr)
-		http.Error(w, "Failed to analyze image, please wait and try again", http.StatusInternalServerError)
-		return
+	embeddingStart := time.Now()
+	embedRes, embedErr = similarityClient.Embed(context, similarityRequest)
+	embeddingDuration := time.Since(embeddingStart)
+	modelHistogram.With(prometheus.Labels{}).Observe(embeddingDuration.Seconds())
+
+	if embedErr == nil {
+		databaseStart := time.Now()
+		similarURLs = querySimilar(embedRes.Embedding, context)
+		databaseDuration := time.Since(databaseStart)
+		databaseHistogram.With(prometheus.Labels{}).Observe(databaseDuration.Seconds())
 	}
+
+	go func() {
+		deleteS3(jobID)
+		deleteS3(processedID)
+	}()
 
 	if embedErr != nil {
 		log.Printf("Embed call failed, err=(%v)", embedErr)
@@ -256,6 +335,7 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := SimilarityResponse{
+		JobID:       jobID,
 		SimilarURLs: similarURLs,
 		FacialArea: FacialArea{
 			X:         int32(float32(preprocessResponse.FacialArea.X)),
@@ -265,16 +345,71 @@ func similarity(w http.ResponseWriter, r *http.Request) {
 			LEFT_EYE:  left_eye,
 			RIGHT_EYE: right_eye,
 		},
-		Analysis: Analysis{
-			GENDER:  analysisRes.Gender,
-			AGE:     analysisRes.Age,
-			RACE:    analysisRes.Race,
-			EMOTION: analysisRes.Emotion,
-		},
 	}
 
 	jsonWriter := json.NewEncoder(w)
 	err = jsonWriter.Encode(response)
+
+	if err != nil {
+		log.Printf("Response encoding failure!, err=(%v)", err)
+		http.Error(w, "Failed to create response, please wait and try again", http.StatusInternalServerError)
+		return
+	}
+}
+
+type JobResponse struct {
+	JobID  string `json:"job_id"`
+	Result string `json:"result"`
+	Error  string `json:"error"`
+}
+
+func checkJob(w http.ResponseWriter, r *http.Request) {
+
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	jobID := r.URL.Query().Get("jobID")
+
+	log.Printf("Checking on job %v", jobID)
+
+	if jobID == "" {
+		http.Error(w, "Missing jobID param", http.StatusBadRequest)
+		return
+	}
+
+	response := JobResponse{
+		JobID:  jobID,
+		Result: "--",
+		Error:  "",
+	}
+
+	result, ok := analysisStore.Load(jobID)
+
+	if !ok {
+		log.Printf("No job found, %v", jobID)
+		response.Error = "No job found"
+	} else {
+		job := result.(*AnalysisJob)
+
+		log.Printf("job found! %v", jobID)
+		if job.Status == "pending" {
+			log.Printf("Job still pending")
+		} else {
+			log.Printf("Job has result, %v", job.Result)
+			response.Result = job.Result
+			analysisStore.Delete(jobID)
+		}
+	}
+
+	log.Printf("Result is %v", response)
+	jsonWriter := json.NewEncoder(w)
+	err := jsonWriter.Encode(response)
 
 	if err != nil {
 		log.Printf("Response encoding failure!, err=(%v)", err)
